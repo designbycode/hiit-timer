@@ -48,7 +48,7 @@ class SpeechManager {
       case Phase.WARM_UP:
         return 'Warm up';
       case Phase.WORK:
-        return round ? `Round ${round}, Go!` : 'Go!';
+        return round !== undefined ? `Round ${round + 1}, Go!` : 'Go!';
       case Phase.REST:
         return 'Rest';
       case Phase.COOL_DOWN:

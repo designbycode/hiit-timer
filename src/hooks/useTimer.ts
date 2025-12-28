@@ -1,7 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { TimerEngine } from '@/services/timer/TimerEngine';
-import { TimerState, Phase } from '@/types/workout';
+import { Phase } from '@/types/workout';
 import { alertService } from '@/services/alerts/AlertService';
+import { audioManager } from '@/services/alerts/AudioManager';
+import { speechManager } from '@/services/alerts/SpeechManager';
 import { useWorkoutStore } from '@/store/workoutStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAppState } from './useAppState';
@@ -20,6 +22,17 @@ export function useTimer(workoutId: string | null) {
   }, [currentWorkout]);
 
   useEffect(() => {
+    // Load the ticking sound
+    const loadSounds = async () => {
+      try {
+        await audioManager.loadSound('ticking', require('@/assets/sounds/ticking-timer.wav'));
+      } catch (error) {
+        console.error('Error loading ticking sound:', error);
+      }
+    };
+
+    loadSounds();
+
     if (!workoutId || !currentWorkout) {
       if (engineRef.current) {
         engineRef.current.destroy();
@@ -33,26 +46,37 @@ export function useTimer(workoutId: string | null) {
         onUpdate: (state) => {
           updateTimerState(state);
         },
-        onPhaseChange: (phase, round) => {
+        onPhaseChange: async (phase, round) => {
           if (phase !== lastPhaseRef.current || round !== lastRoundRef.current) {
-            alertService.triggerAlert('PHASE_CHANGE', {
-              soundEnabled,
-              vibrationEnabled,
-              voiceEnabled,
-              phase,
-              round,
-            });
-            lastPhaseRef.current = phase;
+            try {
+              await alertService.triggerAlert('PHASE_CHANGE', {
+                soundEnabled,
+                vibrationEnabled,
+                voiceEnabled,
+                phase,
+                round,
+              });
+              lastPhaseRef.current = phase;
+              lastRoundRef.current = round;
+            } catch (error) {
+              console.error('Error triggering alert:', error);
+              // Optionally handle the error, e.g., show a user-friendly message
+            }
             lastRoundRef.current = round;
           }
         },
-        onComplete: () => {
-          alertService.triggerAlert('PHASE_CHANGE', {
-            soundEnabled,
-            vibrationEnabled,
-            voiceEnabled,
-            phase: Phase.COMPLETE,
-          });
+        onComplete: async () => {
+          try {
+            await alertService.triggerAlert('PHASE_CHANGE', {
+              soundEnabled,
+              vibrationEnabled,
+              voiceEnabled,
+              phase: Phase.COMPLETE,
+            });
+          } catch (error) {
+            console.error('Error triggering completion alert:', error);
+            // Optionally handle the error, e.g., show a user-friendly message
+          }
         },
       });
     }
@@ -66,6 +90,9 @@ export function useTimer(workoutId: string | null) {
         engineRef.current.destroy();
         engineRef.current = null;
       }
+      // Clean up audio on unmount
+      speechManager.stop();
+      audioManager.unloadAll();
     };
   }, [workoutId, currentWorkout, updateTimerState, soundEnabled, vibrationEnabled, voiceEnabled]);
 
@@ -88,6 +115,9 @@ export function useTimer(workoutId: string | null) {
     engineRef.current?.stop();
     useWorkoutStore.getState().stop();
     setWorkout(null);
+    // Stop any ongoing speech and audio
+    speechManager.stop();
+    audioManager.unloadAll();
   }, [setWorkout]);
 
   const skip = useCallback(() => {

@@ -4,9 +4,17 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  withSequence,
+  withDelay,
   Easing,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideInUp,
+  ZoomIn,
 } from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '@/constants/colors';
 
 const { width } = Dimensions.get('window');
@@ -19,16 +27,44 @@ interface SplashScreenProps {
 export const CustomSplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const [isVisible, setIsVisible] = useState(true);
   const progress = useSharedValue(0);
+  const logoScale = useSharedValue(0.3);
+  const titleOpacity = useSharedValue(0);
+  const subtitleOpacity = useSharedValue(0);
+  const titleTranslateY = useSharedValue(20);
+  const subtitleTranslateY = useSharedValue(20);
 
   useEffect(() => {
     // Hide the native splash screen
-    SplashScreen.hideAsync();
+    const hideSplash = async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        // Handle error if splash screen can't be hidden
+        console.warn('Could not hide splash screen', e);
+      }
+    };
+    // Handle the returned Promise
+    hideSplash().catch(e => console.warn('Error in hideSplash:', e));
 
     // Start progress animation
     progress.value = withTiming(1, {
       duration: SPLASH_DURATION,
       easing: Easing.linear,
     });
+
+    // Logo animation
+    logoScale.value = withTiming(1, {
+      duration: 1000,
+      easing: Easing.elastic(1),
+    });
+
+    // Title animation
+    titleOpacity.value = withDelay(300, withTiming(1, { duration: 800 }));
+    titleTranslateY.value = withDelay(300, withTiming(0, { duration: 800, easing: Easing.out(Easing.cubic) }));
+
+    // Subtitle animation
+    subtitleOpacity.value = withDelay(600, withTiming(1, { duration: 800 }));
+    subtitleTranslateY.value = withDelay(600, withTiming(0, { duration: 800, easing: Easing.out(Easing.cubic) }));
 
     // Hide splash after duration
     const timer = setTimeout(() => {
@@ -37,13 +73,25 @@ export const CustomSplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) =>
     }, SPLASH_DURATION);
 
     return () => clearTimeout(timer);
-  }, [onFinish, progress]);
+  }, [onFinish, progress, logoScale, titleOpacity, subtitleOpacity, titleTranslateY, subtitleTranslateY]);
 
-  const progressStyle = useAnimatedStyle(() => {
-    return {
-      width: `${progress.value * 100}%`,
-    };
-  });
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`,
+  }));
+
+  const logoStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value }],
+  }));
+
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: titleTranslateY.value }],
+  }));
+
+  const subtitleStyle = useAnimatedStyle(() => ({
+    opacity: subtitleOpacity.value,
+    transform: [{ translateY: subtitleTranslateY.value }],
+  }));
 
   if (!isVisible) {
     return null;
@@ -61,13 +109,42 @@ export const CustomSplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) =>
           }}
       >
       <View style={styles.content}>
-        <Image source={require('@assets/images/splash-icon.png')} style={{width: 500, height: 500, marginBottom: -100}} />
-        <Text style={styles.title}>HIIT Timer</Text>
-        <Text style={styles.subtitle}>Get Ready to Train</Text>
+        <Animated.Image 
+          source={require('@assets/images/splash-icon.png')} 
+          style={[
+            { width: 400, height: 400, marginBottom: -80 },
+            logoStyle
+          ]} 
+          resizeMode="contain"
+        />
+        
+        <Animated.View style={titleStyle}>
+          <Animated.View entering={FadeIn.duration(1000).delay(300)}>
+            <Text style={styles.title}>
+              HIIT Timer
+            </Text>
+          </Animated.View>
+        </Animated.View>
+        
+        <Animated.View style={subtitleStyle}>
+          <Animated.View entering={FadeIn.duration(800).delay(600)}>
+            <Text style={styles.subtitle}>
+              Get Ready to Train
+            </Text>
+          </Animated.View>
+        </Animated.View>
       </View>
+      
       <View style={styles.progressContainer}>
         <View style={styles.progressBarBackground}>
-          <Animated.View style={[styles.progressBar, progressStyle]} />
+          <Animated.View style={[styles.progressBar, progressStyle]}>
+            <LinearGradient
+              colors={['#FF6B6B', '#FF8E53']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradient}
+            />
+          </Animated.View>
         </View>
       </View>
       </ImageBackground>
@@ -114,7 +191,11 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  gradient: {
+    flex: 1,
+    width: '100%',
   },
 });

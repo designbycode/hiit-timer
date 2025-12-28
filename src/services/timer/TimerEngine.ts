@@ -2,6 +2,7 @@ import { TIMINGS } from '@/constants/timings';
 import { TimerEngineConfig, TimerEngineState } from '@/types/timer';
 import { Phase, Workout } from '@/types/workout';
 import { TimerStateManager } from './TimerState';
+import { audioManager } from '@/services/alerts/AudioManager';
 
 export class TimerEngine {
   private workout: Workout | null = null;
@@ -12,6 +13,7 @@ export class TimerEngine {
   private phaseDurations: Map<Phase, number> = new Map();
   private currentPhaseIndex = 0;
   private lastUpdateTime = 0;
+  private audioManager = audioManager;
 
   constructor(config: TimerEngineConfig = {}) {
     this.config = config;
@@ -124,6 +126,7 @@ export class TimerEngine {
     const state = this.stateManager.getState();
     if (!state.isRunning || state.isPaused) {
       this.animationFrameId = null;
+      audioManager.stopTicking();
       return;
     }
 
@@ -135,7 +138,15 @@ export class TimerEngine {
 
     const updatedState = this.stateManager.getState();
 
+    // Handle ticking sound for the last 7 seconds of each phase (starts at 7 to ensure audio is ready)
+    if (updatedState.timeRemaining > 5 && updatedState.timeRemaining > 0) {
+      audioManager.play('ticking');
+    } else {
+      audioManager.stopTicking();
+    }
+
     if (updatedState.timeRemaining <= 0) {
+      audioManager.stopTicking();
       this.transitionToNextPhase();
     } else {
       if (now - this.lastUpdateTime >= TIMINGS.UI_UPDATE_INTERVAL) {
@@ -217,4 +228,3 @@ export class TimerEngine {
     this.stateManager.reset();
   }
 }
-

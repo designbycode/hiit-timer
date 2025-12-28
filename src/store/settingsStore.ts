@@ -22,16 +22,28 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     storageService.saveSettings({ soundEnabled: newValue });
   },
 
-  toggleVibration: () => {
+  toggleVibration: async () => {
     const newValue = !get().vibrationEnabled;
     set({ vibrationEnabled: newValue });
-    storageService.saveSettings({ vibrationEnabled: newValue });
+    try {
+      await storageService.saveSettings({ vibrationEnabled: newValue });
+    } catch (error) {
+      console.error('Failed to save vibration settings:', error);
+      // Revert the state if save fails
+      set({ vibrationEnabled: !newValue });
+    }
   },
 
-  toggleVoice: () => {
+  toggleVoice: async () => {
     const newValue = !get().voiceEnabled;
     set({ voiceEnabled: newValue });
-    storageService.saveSettings({ voiceEnabled: newValue });
+    try {
+      await storageService.saveSettings({ voiceEnabled: newValue });
+    } catch (error) {
+      console.error('Failed to save voice settings:', error);
+      // Revert the state if save fails
+      set({ voiceEnabled: !newValue });
+    }
   },
 
   loadSettings: async () => {

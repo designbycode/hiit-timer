@@ -1,5 +1,6 @@
 import { QuickStartCard } from '@/components/QuickStartCard';
 import { WorkoutCard } from '@/components/WorkoutCard';
+import { COLORS } from "@/constants/colors";
 import { PRESETS } from '@/constants/presets';
 import { storageService } from '@/services/storage/StorageService';
 import { useWorkoutStore } from '@/store/workoutStore';
@@ -158,7 +159,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.dark.background,
   },
   header: {
     flexDirection: 'row',
@@ -167,7 +168,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.dark.background,
   },
   headerLeft: {
     flexDirection: 'row',
