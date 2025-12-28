@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useMemo, useState } from 'react';
-import {View, StyleSheet, Alert, BackHandler, StatusBar, TouchableOpacity, Text, Modal} from 'react-native';
+import {View, StyleSheet, BackHandler, StatusBar, TouchableOpacity, Text, Modal} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,9 @@ import { useTimer } from '@/hooks/useTimer';
 import { useKeepScreenAwake } from '@/hooks/useKeepAwake';
 import { useBackgroundPersistence } from '@/hooks/useBackgroundPersistence';
 import { TimerDisplay } from '@/components/TimerDisplay';
+import CustomModal from '@/components/CustomModal';
 import { Phase } from '@/types/workout';
+import { COLORS, FONT_SIZES, SPACING } from '@/constants/theme';
 
 const formatTime = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
@@ -24,19 +26,31 @@ export default function WorkoutScreen() {
   const { currentWorkout } = useWorkoutStore();
   const { start, pause, resume, skip, stop: stopTimer, restart } = useTimer(id || null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState<any[]>([]);
+
+  const showAlert = (title: string, message: string, buttons: any[]) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons);
+    setModalVisible(true);
+  };
 
 
   const handleBackPress = useCallback(() => {
     if (timerState.isRunning && !timerState.isPaused) {
-      Alert.alert(
+      showAlert(
         'Workout in Progress',
         'Are you sure you want to leave? Your progress will be lost.',
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: 'Cancel', style: 'cancel', onPress: () => setModalVisible(false) },
           {
             text: 'Leave',
             style: 'destructive',
             onPress: () => {
+              setModalVisible(false);
               stopTimer();
               router.back();
             },
@@ -69,15 +83,16 @@ export default function WorkoutScreen() {
   }, [timerState.isPaused, pause, resume]);
 
   const handleStop = useCallback(() => {
-    Alert.alert(
+    showAlert(
       'Stop Workout',
       'Are you sure you want to stop this workout?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel', onPress: () => setModalVisible(false) },
         {
           text: 'Stop',
           style: 'destructive',
           onPress: () => {
+            setModalVisible(false);
             stopTimer();
             router.back();
           },
@@ -91,26 +106,33 @@ export default function WorkoutScreen() {
   }, [skip]);
 
   const handleNewTimer = useCallback(() => {
+    setShowCompletionModal(false);
     stopTimer();
     router.back();
   }, [stopTimer, router]);
 
   const handleRestart = useCallback(() => {
-    Alert.alert(
-      'Restart Workout',
-      'Are you sure you want to restart this workout from the beginning?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Restart',
-          style: 'destructive',
-          onPress: () => {
-            restart();
+    if (showCompletionModal) {
+      setShowCompletionModal(false);
+      restart();
+    } else {
+      showAlert(
+        'Restart Workout',
+        'Are you sure you want to restart this workout from the beginning?',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => setModalVisible(false) },
+          {
+            text: 'Restart',
+            style: 'destructive',
+            onPress: () => {
+              setModalVisible(false);
+              restart();
+            },
           },
-        },
-      ]
-    );
-  }, [restart]);
+        ]
+      );
+    }
+  }, [restart, showCompletionModal]);
 
   const totalRounds = useMemo(() => {
     return currentWorkout?.rounds || 0;
@@ -128,11 +150,29 @@ export default function WorkoutScreen() {
     return colors[timerState.phase] || '#007AFF';
   }, [timerState.phase]);
 
+  const phaseLabel = useMemo(() => {
+    const labels: Record<Phase, string> = {
+      [Phase.COUNTDOWN]: 'GET READY',
+      [Phase.WARM_UP]: 'WARM UP',
+      [Phase.WORK]: 'WORK',
+      [Phase.REST]: 'REST',
+      [Phase.COOL_DOWN]: 'COOL DOWN',
+      [Phase.COMPLETE]: 'FINISHED',
+    };
+    return labels[timerState.phase] || 'ACTIVE';
+  }, [timerState.phase]);
+
   useEffect(() => {
     if (!timerState.isRunning && !timerState.isPaused && id) {
       start();
     }
   }, [id, start, timerState.isRunning, timerState.isPaused]);
+
+  useEffect(() => {
+    if (timerState.phase === Phase.COMPLETE) {
+      setShowCompletionModal(true);
+    }
+  }, [timerState.phase]);
 
   const getNextPhaseLabel = useCallback(() => {
     if (timerState.phase === Phase.WORK) return 'Next Rest';
@@ -160,7 +200,9 @@ export default function WorkoutScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Workout Complete!</Text>
-            <Text style={styles.modalText}>Great job! You&apos;ve completed your workout.</Text>
+            <Text style={styles.modalText}>
+              Great job! You&apos;ve completed your workout in {formatTime(timerState.totalTime)}.
+            </Text>
             
             <TouchableOpacity 
               style={[styles.modalButton, styles.restartButton]}
@@ -192,7 +234,7 @@ export default function WorkoutScreen() {
 
       {/* Workout Label */}
       <View style={[styles.workoutLabel, { backgroundColor: phaseColor }]}>
-        <Text style={styles.workoutLabelText}>workout</Text>
+        <Text style={styles.workoutLabelText}>{phaseLabel}</Text>
       </View>
 
       <View style={styles.content}>
@@ -237,6 +279,12 @@ export default function WorkoutScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      <CustomModal
+        visible={modalVisible}
+        title={modalTitle}
+        message={modalMessage}
+        buttons={modalButtons}
+      />
     </SafeAreaView>
   );
 }
@@ -248,100 +296,100 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SPACING.lg,
   },
   modalContent: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: COLORS.dark.surface,
     borderRadius: 20,
-    padding: 25,
+    padding: SPACING.lg,
     alignItems: 'center',
     width: '90%',
     maxWidth: 400,
   },
   modalTitle: {
-    color: '#fff',
-    fontSize: 26,
+    color: COLORS.dark.text,
+    fontSize: FONT_SIZES['2xl'],
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
     textAlign: 'center',
   },
   modalText: {
-    color: '#ccc',
-    fontSize: 16,
+    color: COLORS.dark.muted,
+    fontSize: FONT_SIZES.md,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: SPACING.xl,
   },
   modalButton: {
     width: '100%',
-    padding: 18,
+    padding: SPACING.md,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   restartButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: COLORS.dark.success,
   },
   newTimerButton: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.dark.text,
   },
   buttonText: {
-    color: '#fff',
+    color: COLORS.dark.text,
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: FONT_SIZES.md,
   },
   
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.dark.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
   },
   backButton: {
-    padding: 8,
+    padding: SPACING.sm,
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 16,
+    color: COLORS.dark.text,
+    fontSize: FONT_SIZES.md,
     fontWeight: '600',
   },
   settingsButton: {
-    padding: 8,
+    padding: SPACING.sm,
   },
   workoutLabel: {
     alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     borderRadius: 20,
-    marginBottom: 24,
+    marginBottom: SPACING.lg,
   },
   workoutLabelText: {
-    color: '#fff',
+    color: COLORS.dark.text,
     textTransform: 'uppercase',
-    fontSize: 12,
+    fontSize: FONT_SIZES.xs,
     fontWeight: '600',
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: SPACING.lg,
   },
   controls: {
     width: '100%',
-    marginTop: 48,
+    marginTop: SPACING.xl,
     alignItems: 'center',
   },
   controlRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 20,
-    marginBottom: 16,
+    gap: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   controlButton: {
     width: 60,
@@ -353,15 +401,15 @@ const styles = StyleSheet.create({
   nextButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     borderRadius: 30,
     minWidth: 200,
     justifyContent: 'space-between',
   },
   nextButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: COLORS.dark.text,
+    fontSize: FONT_SIZES.md,
     fontWeight: '600',
   },
   nextButtonIcon: {
@@ -371,6 +419,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: SPACING.sm,
   },
 });
