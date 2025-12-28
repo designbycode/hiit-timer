@@ -1,6 +1,7 @@
 import { QuickStartCard } from '@/components/QuickStartCard';
 import { WorkoutCard } from '@/components/WorkoutCard';
-import { COLORS } from "@/constants/colors";
+import CustomModal from '@/components/CustomModal';
+import { COLORS, FONT_SIZES, SPACING } from "@/constants/theme";
 import { PRESETS } from '@/constants/presets';
 import { storageService } from '@/services/storage/StorageService';
 import { useWorkoutStore } from '@/store/workoutStore';
@@ -9,14 +10,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
     Image
 } from 'react-native';
+import Animated, { Layout } from 'react-native-reanimated';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -24,6 +24,17 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [lastUsedWorkout, setLastUsedWorkout] = useState<Workout | null>(null);
   const { setWorkout } = useWorkoutStore();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState<any[]>([]);
+
+  const showAlert = (title: string, message: string, buttons: any[]) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons);
+    setModalVisible(true);
+  };
 
   useEffect(() => {
     loadWorkouts();
@@ -77,16 +88,17 @@ export default function HomeScreen() {
 
   const handleDelete = useCallback(
     async (workout: Workout) => {
-      Alert.alert(
+      showAlert(
         'Delete Workout',
         `Are you sure you want to delete "${workout.name}"?`,
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: 'Cancel', style: 'cancel', onPress: () => setModalVisible(false) },
           {
             text: 'Delete',
             style: 'destructive',
             onPress: async () => {
               await storageService.deleteWorkout(workout.id);
+              setModalVisible(false);
               loadWorkouts();
             },
           },
@@ -119,39 +131,48 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
+      <Animated.FlatList
+        data={myWorkouts}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Animated.View layout={Layout.springify()}>
+            <WorkoutCard
+              workout={item}
+              onPress={() => handleWorkoutPress(item)}
+              onDelete={() => handleDelete(item)}
+            />
+          </Animated.View>
+        )}
+        ListHeaderComponent={
+          <>
+            <Text style={styles.readyText}>Ready to Train?</Text>
+            {lastUsedWorkout && (
+              <QuickStartCard
+                workout={lastUsedWorkout}
+                onPress={() => handleWorkoutPress(lastUsedWorkout)}
+              />
+            )}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>My Workouts</Text>
+              <TouchableOpacity>
+                <Text style={styles.seeAllText}>See all</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        }
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.readyText}>Ready to Train?</Text>
-
-        {lastUsedWorkout && (
-          <QuickStartCard
-            workout={lastUsedWorkout}
-            onPress={() => handleWorkoutPress(lastUsedWorkout)}
-          />
-        )}
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>My Workouts</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAllText}>See all</Text>
-          </TouchableOpacity>
-        </View>
-
-        {myWorkouts.map((workout) => (
-          <WorkoutCard
-            key={workout.id}
-            workout={workout}
-            onPress={() => handleWorkoutPress(workout)}
-          />
-        ))}
-      </ScrollView>
+      />
 
       <TouchableOpacity style={styles.fab} onPress={handleCreateWorkout}>
         <Ionicons name="add" size={32} color="#FFFFFF" />
       </TouchableOpacity>
+      <CustomModal
+        visible={modalVisible}
+        title={modalTitle}
+        message={modalMessage}
+        buttons={modalButtons}
+      />
     </View>
   );
 }
@@ -165,9 +186,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.md,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: SPACING.lg,
     backgroundColor: COLORS.dark.background,
   },
   headerLeft: {
@@ -177,19 +198,18 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 50,
     height: 50,
-    // backgroundColor: '#FF9800',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: SPACING.sm,
   },
   title: {
-    fontSize: 24,
+    fontSize: FONT_SIZES['2xl'],
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: COLORS.dark.text,
   },
   settingsButton: {
-    padding: 8,
+    padding: SPACING.sm,
   },
   scrollView: {
     flex: 1,
@@ -198,39 +218,39 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   readyText: {
-    fontSize: 32,
+    fontSize: FONT_SIZES['3xl'],
     fontWeight: '700',
-    color: '#FFFFFF',
-    paddingHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
+    color: COLORS.dark.text,
+    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
+    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: FONT_SIZES.xl,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: COLORS.dark.text,
   },
   seeAllText: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.md,
     fontWeight: '600',
-    color: '#FF9800',
+    color: COLORS.dark.primary,
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
+    bottom: SPACING.lg,
+    right: SPACING.lg,
     width: 64,
     height: 64,
     borderRadius: 16,
-    backgroundColor: '#FF9800',
+    backgroundColor: COLORS.dark.primary,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

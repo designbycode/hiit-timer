@@ -1,18 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { View, StyleSheet, Text, useWindowDimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useDerivedValue,
-  withSpring,
   withTiming,
+  useSharedValue,
 } from 'react-native-reanimated';
 import { CircularProgress } from './CircularProgress';
-import { PhaseLabel } from './PhaseLabel';
-import { RoundIndicator } from './RoundIndicator';
 import { TimerState } from '@/types/workout';
-import { COLORS } from '@/constants/colors';
+import { COLORS } from '@/constants/theme';
 import { formatTime } from '@/utils/time';
-import { ANIMATIONS } from '@/constants/animations';
 
 interface TimerDisplayProps {
   timerState: TimerState;
@@ -24,6 +21,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(
     const { width } = useWindowDimensions();
     const size = Math.min(width * 0.8, 320);
     const strokeWidth = 10;
+    const animatedTime = useSharedValue(1);
 
     const progress = useMemo(() => {
       if (timerState.totalTime === 0) return 0;
@@ -31,7 +29,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(
     }, [timerState.timeRemaining, timerState.totalTime]);
 
     const phaseColor = useMemo(
-      () => COLORS.phase[timerState.phase] || COLORS.accent,
+      () => COLORS.phase[timerState.phase] || COLORS.dark.primary,
       [timerState.phase]
     );
 
@@ -40,19 +38,17 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(
       [timerState.timeRemaining]
     );
 
-    const animatedTime = useDerivedValue(() => {
-      return withSpring(1, ANIMATIONS.spring);
-    });
+    useEffect(() => {
+      animatedTime.value = withTiming(0.9, { duration: 200 }, () => {
+        animatedTime.value = withTiming(1, { duration: 200 });
+      });
+    }, [timeText, animatedTime]);
 
     const animatedTimeStyle = useAnimatedStyle(() => {
       return {
         transform: [{ scale: animatedTime.value }],
       };
     });
-
-    const animatedProgress = useDerivedValue(() => {
-      return withTiming(progress, { duration: 100 });
-    }, [progress]);
 
     return (
       <View style={styles.container}>

@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Workout } from '@/types/workout';
 import { formatTimeShort } from '@/utils/time';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 interface WorkoutCardProps {
   workout: Workout;
@@ -12,7 +14,9 @@ interface WorkoutCardProps {
 }
 
 export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(
-  ({ workout, onPress }) => {
+  ({ workout, onPress, onDelete }) => {
+    const isPressed = useSharedValue(false);
+
     const totalDuration = React.useMemo(() => {
       let total = 0;
       if (workout.warmUpDuration) total += workout.warmUpDuration;
@@ -31,26 +35,52 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(
       return `0:${secs.toString().padStart(2, '0')}`;
     };
 
+    const gesture = Gesture.LongPress()
+      .onStart(() => {
+        isPressed.value = true;
+      })
+      .onEnd(() => {
+        isPressed.value = false;
+      })
+      .onFinalize(() => {
+        isPressed.value = false;
+      });
+
+    const animatedStyle = useAnimatedStyle(() => {
+      return {
+        transform: [{ scale: withSpring(isPressed.value ? 1.05 : 1) }],
+      };
+    });
+
     return (
-      <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-        <View style={styles.imagePlaceholder}>
-          <Ionicons name="fitness" size={32} color="#666666" />
-        </View>
-        <View style={styles.content}>
-          <Text style={styles.name}>{workout.name}</Text>
-          <Text style={styles.duration}>{formatDuration(totalDuration)}</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{workout.rounds} Rounds</Text>
-          </View>
-          <Text style={styles.details}>
-            {formatTimeShort(workout.workDuration)} Work • {formatTimeShort(workout.restDuration)}{' '}
-            Rest
-          </Text>
-        </View>
-        <TouchableOpacity style={styles.playButton} onPress={onPress}>
-          <Ionicons name="play" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-      </TouchableOpacity>
+      <GestureDetector gesture={gesture}>
+        <Animated.View style={animatedStyle}>
+          <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+            <View style={styles.imagePlaceholder}>
+              <Ionicons name="fitness" size={32} color="#666666" />
+            </View>
+            <View style={styles.content}>
+              <Text style={styles.name}>{workout.name}</Text>
+              <Text style={styles.duration}>{formatDuration(totalDuration)}</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{workout.rounds} Rounds</Text>
+              </View>
+              <Text style={styles.details}>
+                {formatTimeShort(workout.workDuration)} Work • {formatTimeShort(workout.restDuration)}{' '}
+                Rest
+              </Text>
+            </View>
+            {onDelete && (
+              <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+                <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.playButton} onPress={onPress}>
+              <Ionicons name="play" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Animated.View>
+      </GestureDetector>
     );
   },
   (prevProps, nextProps) => {
@@ -124,5 +154,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
+  },
+  deleteButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

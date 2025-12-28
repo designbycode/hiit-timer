@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -13,9 +12,10 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useWorkoutStore } from '@/store/workoutStore';
 import { storageService } from '@/services/storage/StorageService';
 import { Button } from '@/components/Button';
+import CustomModal from '@/components/CustomModal';
 import { Workout } from '@/types/workout';
 import { TIMINGS } from '@/constants/timings';
-import {COLORS} from "@/constants/colors";
+import { COLORS, FONT_SIZES, SPACING } from '@/constants/theme';
 
 export default function CreateWorkoutScreen() {
   const router = useRouter();
@@ -30,6 +30,17 @@ export default function CreateWorkoutScreen() {
   const [warmUpDuration, setWarmUpDuration] = useState('');
   const [coolDownDuration, setCoolDownDuration] = useState('');
   const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState<any[]>([]);
+
+  const showAlert = (title: string, message: string, buttons: any[]) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons);
+    setModalVisible(true);
+  };
 
   useEffect(() => {
     if (isEditing && currentWorkout) {
@@ -48,7 +59,7 @@ export default function CreateWorkoutScreen() {
 
   const validate = useCallback((): boolean => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter a workout name');
+      showAlert('Error', 'Please enter a workout name', [{ text: 'OK', onPress: () => setModalVisible(false) }]);
       return false;
     }
 
@@ -64,9 +75,10 @@ export default function CreateWorkoutScreen() {
       work < TIMINGS.MIN_WORK_DURATION ||
       work > TIMINGS.MAX_WORK_DURATION
     ) {
-      Alert.alert(
+      showAlert(
         'Error',
-        `Work duration must be between ${TIMINGS.MIN_WORK_DURATION} and ${TIMINGS.MAX_WORK_DURATION} seconds`
+        `Work duration must be between ${TIMINGS.MIN_WORK_DURATION} and ${TIMINGS.MAX_WORK_DURATION} seconds`,
+        [{ text: 'OK', onPress: () => setModalVisible(false) }]
       );
       return false;
     }
@@ -75,9 +87,10 @@ export default function CreateWorkoutScreen() {
       rest < TIMINGS.MIN_REST_DURATION ||
       rest > TIMINGS.MAX_REST_DURATION
     ) {
-      Alert.alert(
+      showAlert(
         'Error',
-        `Rest duration must be between ${TIMINGS.MIN_REST_DURATION} and ${TIMINGS.MAX_REST_DURATION} seconds`
+        `Rest duration must be between ${TIMINGS.MIN_REST_DURATION} and ${TIMINGS.MAX_REST_DURATION} seconds`,
+        [{ text: 'OK', onPress: () => setModalVisible(false) }]
       );
       return false;
     }
@@ -86,25 +99,28 @@ export default function CreateWorkoutScreen() {
       roundsNum < TIMINGS.MIN_ROUNDS ||
       roundsNum > TIMINGS.MAX_ROUNDS
     ) {
-      Alert.alert(
+      showAlert(
         'Error',
-        `Rounds must be between ${TIMINGS.MIN_ROUNDS} and ${TIMINGS.MAX_ROUNDS}`
+        `Rounds must be between ${TIMINGS.MIN_ROUNDS} and ${TIMINGS.MAX_ROUNDS}`,
+        [{ text: 'OK', onPress: () => setModalVisible(false) }]
       );
       return false;
     }
 
     if (warmUp > TIMINGS.MAX_WARM_UP) {
-      Alert.alert(
+      showAlert(
         'Error',
-        `Warm-up duration cannot exceed ${TIMINGS.MAX_WARM_UP} seconds`
+        `Warm-up duration cannot exceed ${TIMINGS.MAX_WARM_UP} seconds`,
+        [{ text: 'OK', onPress: () => setModalVisible(false) }]
       );
       return false;
     }
 
     if (coolDown > TIMINGS.MAX_COOL_DOWN) {
-      Alert.alert(
+      showAlert(
         'Error',
-        `Cool-down duration cannot exceed ${TIMINGS.MAX_COOL_DOWN} seconds`
+        `Cool-down duration cannot exceed ${TIMINGS.MAX_COOL_DOWN} seconds`,
+        [{ text: 'OK', onPress: () => setModalVisible(false) }]
       );
       return false;
     }
@@ -135,7 +151,7 @@ export default function CreateWorkoutScreen() {
       router.back();
     } catch (error) {
       console.error('Error saving workout:', error);
-      Alert.alert('Error', 'Failed to save workout');
+      showAlert('Error', 'Failed to save workout', [{ text: 'OK', onPress: () => setModalVisible(false) }]);
     } finally {
       setLoading(false);
     }
@@ -154,16 +170,17 @@ export default function CreateWorkoutScreen() {
   const handleDelete = useCallback(() => {
     if (!id) return;
 
-    Alert.alert(
+    showAlert(
       'Delete Workout',
       'Are you sure you want to delete this workout?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel', onPress: () => setModalVisible(false) },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             await storageService.deleteWorkout(id);
+            setModalVisible(false);
             router.back();
           },
         },
@@ -254,6 +271,12 @@ export default function CreateWorkoutScreen() {
           )}
         </View>
       </ScrollView>
+      <CustomModal
+        visible={modalVisible}
+        title={modalTitle}
+        message={modalMessage}
+        buttons={modalButtons}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -267,27 +290,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
+    padding: SPACING.md,
   },
   label: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.md,
     fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
     color: COLORS.dark.text,
   },
   input: {
     borderWidth: 1,
-    borderColor: `${COLORS.dark.border}`,
+    borderColor: COLORS.dark.border,
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    padding: SPACING.sm,
+    fontSize: FONT_SIZES.md,
     backgroundColor: COLORS.dark.surface,
     color: COLORS.dark.text,
   },
   actions: {
-    marginTop: 24,
-    gap: 12,
+    marginTop: SPACING.lg,
+    gap: SPACING.sm,
   },
   button: {
     width: '100%',
