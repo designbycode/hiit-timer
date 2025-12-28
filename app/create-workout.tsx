@@ -9,13 +9,13 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useWorkoutStore } from '@/store/workoutStore';
-import { storageService } from '@/services/storage/StorageService';
-import { Button } from '@/components/Button';
-import CustomModal from '@/components/CustomModal';
-import { Workout } from '@/types/workout';
-import { TIMINGS } from '@/constants/timings';
-import { COLORS, FONT_SIZES, SPACING } from '@/constants/theme';
+import { useWorkoutStore } from '@/libs/store/workoutStore';
+import { storageService } from '@/libs/services/storage/StorageService';
+import { Button } from '@/libs/components/Button';
+import CustomModal from '@/libs/components/CustomModal';
+import { Workout } from '@/libs/types/workout';
+import { TIMINGS } from '@/libs/constants/timings';
+import { colors, fontSizes, spacing } from '@/libs/constants/theme';
 
 export default function CreateWorkoutScreen() {
   const router = useRouter();
@@ -276,6 +276,7 @@ export default function CreateWorkoutScreen() {
         title={modalTitle}
         message={modalMessage}
         buttons={modalButtons}
+        onRequestClose={() => setModalVisible(false)}
       />
     </KeyboardAvoidingView>
   );
@@ -284,33 +285,33 @@ export default function CreateWorkoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark.background,
+    backgroundColor: colors.dark.background,
   },
   scroll: {
     flex: 1,
   },
   content: {
-    padding: SPACING.md,
+    padding: spacing.md,
   },
   label: {
-    fontSize: FONT_SIZES.md,
+    fontSize: fontSizes.md,
     fontWeight: '600',
-    marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
-    color: COLORS.dark.text,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    color: colors.dark.text,
   },
   input: {
     borderWidth: 1,
-    borderColor: COLORS.dark.border,
+    borderColor: colors.dark.border,
     borderRadius: 8,
-    padding: SPACING.sm,
-    fontSize: FONT_SIZES.md,
-    backgroundColor: COLORS.dark.surface,
-    color: COLORS.dark.text,
+    padding: spacing.sm,
+    fontSize: fontSizes.md,
+    backgroundColor: colors.dark.surface,
+    color: colors.dark.text,
   },
   actions: {
-    marginTop: SPACING.lg,
-    gap: SPACING.sm,
+    marginTop: spacing.lg,
+    gap: spacing.sm,
   },
   button: {
     width: '100%',

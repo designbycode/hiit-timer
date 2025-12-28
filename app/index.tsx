@@ -1,11 +1,12 @@
-import { QuickStartCard } from '@/components/QuickStartCard';
-import { WorkoutCard } from '@/components/WorkoutCard';
-import CustomModal from '@/components/CustomModal';
-import { COLORS, FONT_SIZES, SPACING } from "@/constants/theme";
-import { PRESETS } from '@/constants/presets';
-import { storageService } from '@/services/storage/StorageService';
-import { useWorkoutStore } from '@/store/workoutStore';
-import { Workout } from '@/types/workout';
+import { QuickStartCard } from '@/libs/components/QuickStartCard';
+import { WorkoutCard } from '@/libs/components/WorkoutCard';
+import CustomModal from '@/libs/components/CustomModal';
+import { colors, fontSizes, spacing } from "@/libs/constants/theme";
+import { PRESETS } from '@/libs/constants/presets';
+import { storageService } from '@/libs/services/storage/StorageService';
+import { useWorkoutStore } from '@/libs/store/workoutStore';
+import { Workout } from '@/libs/types/workout';
+import { useButtonSound } from '@/libs/hooks/useButtonSound';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,6 +25,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [lastUsedWorkout, setLastUsedWorkout] = useState<Workout | null>(null);
   const { setWorkout } = useWorkoutStore();
+  const { handlePressIn } = useButtonSound();
   const [modalVisible, setModalVisible] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
@@ -40,6 +42,10 @@ export default function HomeScreen() {
     loadWorkouts();
   }, []);
 
+  const setDefaultWorkout = useCallback(() => {
+    setLastUsedWorkout(workouts.length > 0 ? workouts[0] : PRESETS[0]);
+  }, [workouts]);
+
   useEffect(() => {
     const loadLastUsed = async () => {
       try {
@@ -52,15 +58,16 @@ export default function HomeScreen() {
             return;
           }
         }
-        setLastUsedWorkout(workouts.length > 0 ? workouts[0] : PRESETS[0]);
+        setDefaultWorkout();
       } catch (error) {
-        setLastUsedWorkout(workouts.length > 0 ? workouts[0] : PRESETS[0]);
+        console.error('Error loading last used workout:', error);
+        setDefaultWorkout();
       }
     };
     if (!loading) {
       loadLastUsed();
     }
-  }, [workouts, loading]);
+  }, [workouts, loading, setDefaultWorkout]);
 
   const loadWorkouts = async () => {
     try {
@@ -122,11 +129,11 @@ export default function HomeScreen() {
         <View style={styles.headerLeft}>
           <View style={styles.iconContainer}>
             <Image
-                           source={require('@assets/images/icon.png')} style={{width: 80, height: 80}} />
+                           source={require('@/assets/images/icon.png')} style={{width: 80, height: 80}} />
           </View>
           <Text style={styles.title}>HIIT Timer</Text>
         </View>
-        <TouchableOpacity onPress={handleSettings} style={styles.settingsButton}>
+        <TouchableOpacity onPress={handleSettings} onPressIn={handlePressIn} style={styles.settingsButton}>
           <Ionicons name="settings-outline" size={24} color="#999999" />
         </TouchableOpacity>
       </View>
@@ -139,7 +146,7 @@ export default function HomeScreen() {
             <WorkoutCard
               workout={item}
               onPress={() => handleWorkoutPress(item)}
-              onDelete={() => handleDelete(item)}
+              onDelete={!item.isPreset ? () => handleDelete(item) : undefined}
             />
           </Animated.View>
         )}
@@ -164,7 +171,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <TouchableOpacity style={styles.fab} onPress={handleCreateWorkout}>
+      <TouchableOpacity style={styles.fab} onPress={handleCreateWorkout} onPressIn={handlePressIn}>
         <Ionicons name="add" size={32} color="#FFFFFF" />
       </TouchableOpacity>
       <CustomModal
@@ -172,6 +179,7 @@ export default function HomeScreen() {
         title={modalTitle}
         message={modalMessage}
         buttons={modalButtons}
+        onRequestClose={() => setModalVisible(false)}
       />
     </View>
   );
@@ -180,16 +188,16 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark.background,
+    backgroundColor: colors.dark.background,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: spacing.md,
     paddingTop: 60,
-    paddingBottom: SPACING.lg,
-    backgroundColor: COLORS.dark.background,
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.dark.background,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -201,15 +209,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING.sm,
+    marginRight: spacing.sm,
   },
   title: {
-    fontSize: FONT_SIZES['2xl'],
+    fontSize: fontSizes['2xl'],
     fontWeight: '700',
-    color: COLORS.dark.text,
+    color: colors.dark.text,
   },
   settingsButton: {
-    padding: SPACING.sm,
+    padding: spacing.sm,
   },
   scrollView: {
     flex: 1,
@@ -218,39 +226,39 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   readyText: {
-    fontSize: FONT_SIZES['3xl'],
+    fontSize: fontSizes['3xl'],
     fontWeight: '700',
-    color: COLORS.dark.text,
-    paddingHorizontal: SPACING.md,
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.sm,
+    color: colors.dark.text,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: FONT_SIZES.xl,
+    fontSize: fontSizes.xl,
     fontWeight: '600',
-    color: COLORS.dark.text,
+    color: colors.dark.text,
   },
   seeAllText: {
-    fontSize: FONT_SIZES.md,
+    fontSize: fontSizes.md,
     fontWeight: '600',
-    color: COLORS.dark.primary,
+    color: colors.dark.primary,
   },
   fab: {
     position: 'absolute',
-    bottom: SPACING.lg,
-    right: SPACING.lg,
+    bottom: spacing.lg,
+    right: spacing.lg,
     width: 64,
     height: 64,
     borderRadius: 16,
-    backgroundColor: COLORS.dark.primary,
+    backgroundColor: colors.dark.primary,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
