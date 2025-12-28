@@ -145,12 +145,13 @@ export default function HomeScreen() {
             <Animated.FlatList
                 data={myWorkouts}
                 keyExtractor={(item) => item.id}
+                ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
                 renderItem={({ item }) => (
                     <Animated.View layout={Layout.springify()}>
                         <WorkoutCard
                             workout={item}
                             onPress={() => handleWorkoutPress(item)}
-                            onDelete={
+                            onDeleteRequest={
                                 !item.isPreset
                                     ? () => handleDelete(item)
                                     : undefined
