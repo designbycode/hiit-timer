@@ -1,50 +1,50 @@
-# Welcome to your Expo app 👋
+# Hiit Timer
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A simple and effective HIIT (High-Intensity Interval Training) timer application built with React Native and Expo. This app allows you to create, manage, and run your own custom HIIT workouts.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Create Custom Workouts:** Easily create and save your own HIIT workouts with custom work and rest intervals.
+- **Workout Timer:** A clear and easy-to-use timer that guides you through your workout.
+- **Audio Cues:** Audio cues to signal the start and end of work and rest intervals.
+- **Save Your Workouts:** Your created workouts are saved on your device for quick access.
+- **Cross-Platform:** Works on both iOS and Android.
 
-   ```bash
+## Tech Stack
+
+- **React Native:** A framework for building native apps using React.
+- **Expo:** A platform for making universal React applications.
+- **TypeScript:** A typed superset of JavaScript that compiles to plain JavaScript.
+- **Zustand:** A small, fast and scalable bearbones state-management solution.
+- **Expo Router:** A file-based router for React Native and web applications.
+
+## Getting Started
+
+To get a local copy up and running, follow these simple steps.
+
+### Prerequisites
+
+- Node.js
+- npm
+- Expo CLI
+
+### Installation
+
+1. Clone the repo
+   ```sh
+   git clone https://github.com/your_username_/hiit-timer.git
+   ```
+2. Install NPM packages
+   ```sh
    npm install
    ```
 
-2. Start the app
+## Available Scripts
 
-   ```bash
-   npx expo start
-   ```
+In the project directory, you can run:
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- `npm start`: Runs the app in development mode.
+- `npm run android`: Runs the app on a connected Android device or emulator.
+- `npm run ios`: Runs the app on the iOS simulator.
+- `npm run web`: Runs the app in a web browser.
+- `npm run lint`: Lints the code using ESLint.
