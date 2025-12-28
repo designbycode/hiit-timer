@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Workout } from '@/libs/types/workout'
 import { formatTimeShort } from '@/libs/utils/time'
+import { colors, fontSizes, spacing } from '@/libs/constants/theme'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
     useSharedValue,
@@ -52,11 +53,9 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(
                 isPressed.value = false
             })
 
-        const animatedStyle = useAnimatedStyle(() => {
-            return {
-                transform: [{ scale: withSpring(isPressed.value ? 1.05 : 1) }],
-            }
-        })
+        const animatedStyle = useAnimatedStyle(() => ({
+            transform: [{ scale: withSpring(isPressed.value ? 1.02 : 1) }],
+        }))
 
         return (
             <GestureDetector gesture={gesture}>
@@ -66,127 +65,193 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(
                         onPress={onPress}
                         activeOpacity={0.7}
                     >
-                        <View style={styles.imagePlaceholder}>
-                            <Ionicons
-                                name="fitness"
-                                size={28}
-                                color="#666666"
-                            />
-                        </View>
+                        {/* Accent bar */}
+                        <View style={styles.accent} />
+
+                        {/* Main content */}
                         <View style={styles.content}>
-                            <Text style={styles.name}>{workout.name}</Text>
-                            <Text style={styles.duration}>
-                                {formatDuration(totalDuration)}
-                            </Text>
-                            <View style={styles.badge}>
-                                <Text style={styles.badgeText}>
-                                    {workout.rounds} Rounds
+                            <View style={styles.headerRow}>
+                                <Text style={styles.name} numberOfLines={1}>
+                                    {workout.name}
                                 </Text>
+                                <View style={styles.durationPill}>
+                                    <Ionicons
+                                        name="time-outline"
+                                        size={12}
+                                        color={colors.dark.subtle}
+                                    />
+                                    <Text style={styles.durationText}>
+                                        {formatDuration(totalDuration)}
+                                    </Text>
+                                </View>
                             </View>
-                            <Text style={styles.details}>
-                                {formatTimeShort(workout.workDuration)} Work •{' '}
-                                {formatTimeShort(workout.restDuration)} Rest
-                            </Text>
+
+                            <View style={styles.metaRow}>
+                                <View style={styles.metaItem}>
+                                    <Ionicons
+                                        name="repeat-outline"
+                                        size={14}
+                                        color="#9EA2A8"
+                                    />
+                                    <Text style={styles.metaText}>
+                                        {workout.rounds} rounds
+                                    </Text>
+                                </View>
+                                <View style={styles.dot} />
+                                <View style={styles.metaItem}>
+                                    <Ionicons
+                                        name="flash-outline"
+                                        size={14}
+                                        color="#9EA2A8"
+                                    />
+                                    <Text style={styles.metaText}>
+                                        {formatTimeShort(workout.workDuration)}{' '}
+                                        work
+                                    </Text>
+                                </View>
+                                <View style={styles.dot} />
+                                <View style={styles.metaItem}>
+                                    <Ionicons
+                                        name="pause-outline"
+                                        size={14}
+                                        color="#9EA2A8"
+                                    />
+                                    <Text style={styles.metaText}>
+                                        {formatTimeShort(workout.restDuration)}{' '}
+                                        rest
+                                    </Text>
+                                </View>
+                            </View>
                         </View>
-                        {onDelete && (
+
+                        {/* Actions */}
+                        <View style={styles.actions}>
+                            {!!onDelete && (
+                                <TouchableOpacity
+                                    style={styles.iconButton}
+                                    onPress={onDelete}
+                                    accessibilityLabel="Delete workout"
+                                >
+                                    <Ionicons
+                                        name="trash-outline"
+                                        size={18}
+                                        color={colors.dark.error}
+                                    />
+                                </TouchableOpacity>
+                            )}
                             <TouchableOpacity
-                                style={styles.deleteButton}
-                                onPress={onDelete}
+                                style={styles.playButton}
+                                onPress={onPress}
+                                accessibilityLabel="Start workout"
                             >
                                 <Ionicons
-                                    name="trash-outline"
-                                    size={20}
-                                    color="#FF3B30"
+                                    name="play"
+                                    size={18}
+                                    color={colors.dark.text}
                                 />
                             </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                            style={styles.playButton}
-                            onPress={onPress}
-                        >
-                            <Ionicons name="play" size={20} color="#FFFFFF" />
-                        </TouchableOpacity>
+                        </View>
                     </TouchableOpacity>
                 </Animated.View>
             </GestureDetector>
         )
     },
-    (prevProps, nextProps) => {
-        return (
-            prevProps.workout.id === nextProps.workout.id &&
-            prevProps.workout.name === nextProps.workout.name
-        )
-    }
+    (prev, next) =>
+        prev.workout.id === next.workout.id &&
+        prev.workout.name === next.workout.name
 )
 
 WorkoutCard.displayName = 'WorkoutCard'
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.dark.surface,
         borderRadius: 12,
-        padding: 16,
-        marginVertical: 8,
-        marginHorizontal: 16,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        marginHorizontal: 12,
+        marginVertical: 6,
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#333333',
+        borderColor: colors.dark.border,
     },
-    imagePlaceholder: {
-        width: 54,
-        height: 54,
-        borderRadius: 8,
-        backgroundColor: '#2A2A2A',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 16,
+    accent: {
+        width: 3,
+        alignSelf: 'stretch',
+        backgroundColor: colors.dark.accent,
+        borderRadius: 2,
+        marginRight: 10,
     },
     content: {
         flex: 1,
+        gap: 6,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     name: {
-        fontSize: 18,
+        flex: 1,
+        color: colors.dark.text,
         fontWeight: '600',
-        color: '#FFFFFF',
-        marginBottom: 8,
+        fontSize: 16,
+        marginRight: 8,
     },
-    duration: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: '#FFFFFF',
-        marginBottom: 8,
-    },
-    badge: {
-        alignSelf: 'flex-start',
-        backgroundColor: '#333333',
-        paddingHorizontal: 10,
+    durationPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: colors.dark.surfaceAlt,
+        borderRadius: 999,
+        paddingHorizontal: 8,
         paddingVertical: 4,
-        borderRadius: 12,
-        marginBottom: 8,
     },
-    badgeText: {
-        color: '#FFFFFF',
+    durationText: {
+        color: colors.dark.subtle,
         fontSize: 12,
         fontWeight: '600',
+        letterSpacing: 0.2,
+        marginLeft: 2,
     },
-    details: {
-        fontSize: 14,
-        color: '#999999',
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
-    playButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#000000',
+    metaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    metaText: {
+        color: colors.dark.muted,
+        fontSize: 12,
+    },
+    dot: {
+        width: 3,
+        height: 3,
+        borderRadius: 2,
+        backgroundColor: colors.dark.divider,
+        marginHorizontal: 8,
+    },
+    actions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 10,
+    },
+    iconButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: 12,
+        marginRight: 8,
     },
-    deleteButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+    playButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.dark.accent,
         justifyContent: 'center',
         alignItems: 'center',
     },

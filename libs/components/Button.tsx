@@ -15,13 +15,14 @@ import Animated, {
 import { hapticManager } from '@/libs/services/alerts/HapticManager';
 import { useAudio } from '@/libs/contexts/AudioContext';
 import { ANIMATIONS } from '@/libs/constants/animations';
+import { colors } from '@/libs/constants/theme';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'accent';
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
@@ -88,7 +89,7 @@ export const Button: React.FC<ButtonProps> = React.memo(
       >
         {loading ? (
           <ActivityIndicator
-            color={variant === 'primary' ? '#FFFFFF' : '#007AFF'}
+            color={variant === 'primary' ? colors.dark.text : colors.dark.primary}
           />
         ) : (
           <Text style={buttonTextStyle}>{title}</Text>
@@ -110,34 +111,41 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primary: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.dark.primary,
   },
   secondary: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: colors.dark.primary,
   },
   danger: {
-    backgroundColor: '#F44336',
+    backgroundColor: colors.dark.error, // Using the error color from theme
+  },
+  accent: {
+    backgroundColor: colors.accent, // Using the accent color from theme
   },
   disabled: {
     opacity: 0.5,
+    backgroundColor: colors.dark.muted,
   },
   text: {
     fontSize: 16,
     fontWeight: '600',
   },
   primaryText: {
-    color: '#FFFFFF',
+    color: colors.dark.text,
   },
   secondaryText: {
-    color: '#007AFF',
+    color: colors.dark.primary,
   },
   dangerText: {
-    color: '#FFFFFF',
+    color: colors.dark.text,
   },
   disabledText: {
-    opacity: 0.6,
+    color: colors.dark.muted,
+  },
+  accentText: {
+    color: colors.dark.text,
   },
 });
 
