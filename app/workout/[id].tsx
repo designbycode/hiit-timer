@@ -91,26 +91,32 @@ export default function WorkoutScreen() {
   }, [skip]);
 
   const handleNewTimer = useCallback(() => {
+    setShowCompletionModal(false);
     stopTimer();
     router.back();
   }, [stopTimer, router]);
 
   const handleRestart = useCallback(() => {
-    Alert.alert(
-      'Restart Workout',
-      'Are you sure you want to restart this workout from the beginning?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Restart',
-          style: 'destructive',
-          onPress: () => {
-            restart();
+    if (showCompletionModal) {
+      setShowCompletionModal(false);
+      restart();
+    } else {
+      Alert.alert(
+        'Restart Workout',
+        'Are you sure you want to restart this workout from the beginning?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Restart',
+            style: 'destructive',
+            onPress: () => {
+              restart();
+            },
           },
-        },
-      ]
-    );
-  }, [restart]);
+        ]
+      );
+    }
+  }, [restart, showCompletionModal]);
 
   const totalRounds = useMemo(() => {
     return currentWorkout?.rounds || 0;
@@ -128,11 +134,29 @@ export default function WorkoutScreen() {
     return colors[timerState.phase] || '#007AFF';
   }, [timerState.phase]);
 
+  const phaseLabel = useMemo(() => {
+    const labels: Record<Phase, string> = {
+      [Phase.COUNTDOWN]: 'GET READY',
+      [Phase.WARM_UP]: 'WARM UP',
+      [Phase.WORK]: 'WORK',
+      [Phase.REST]: 'REST',
+      [Phase.COOL_DOWN]: 'COOL DOWN',
+      [Phase.COMPLETE]: 'FINISHED',
+    };
+    return labels[timerState.phase] || 'ACTIVE';
+  }, [timerState.phase]);
+
   useEffect(() => {
     if (!timerState.isRunning && !timerState.isPaused && id) {
       start();
     }
   }, [id, start, timerState.isRunning, timerState.isPaused]);
+
+  useEffect(() => {
+    if (timerState.phase === Phase.COMPLETE) {
+      setShowCompletionModal(true);
+    }
+  }, [timerState.phase]);
 
   const getNextPhaseLabel = useCallback(() => {
     if (timerState.phase === Phase.WORK) return 'Next Rest';
@@ -160,7 +184,9 @@ export default function WorkoutScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Workout Complete!</Text>
-            <Text style={styles.modalText}>Great job! You&apos;ve completed your workout.</Text>
+            <Text style={styles.modalText}>
+              Great job! You&apos;ve completed your workout in {formatTime(timerState.totalTime)}.
+            </Text>
             
             <TouchableOpacity 
               style={[styles.modalButton, styles.restartButton]}
@@ -192,7 +218,7 @@ export default function WorkoutScreen() {
 
       {/* Workout Label */}
       <View style={[styles.workoutLabel, { backgroundColor: phaseColor }]}>
-        <Text style={styles.workoutLabelText}>workout</Text>
+        <Text style={styles.workoutLabelText}>{phaseLabel}</Text>
       </View>
 
       <View style={styles.content}>
