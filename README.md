@@ -25,7 +25,7 @@ To get a local copy up and running, follow these simple steps.
 ### Prerequisites
 
 - Node.js
-- npm
+- bun
 - Expo CLI
 
 ### Installation
@@ -34,17 +34,17 @@ To get a local copy up and running, follow these simple steps.
    ```sh
    git clone https://github.com/your_username_/hiit-timer.git
    ```
-2. Install NPM packages
+2. Install packages
    ```sh
-   npm install
+   bun install
    ```
 
 ## Available Scripts
 
 In the project directory, you can run:
 
-- `npm start`: Runs the app in development mode.
-- `npm run android`: Runs the app on a connected Android device or emulator.
-- `npm run ios`: Runs the app on the iOS simulator.
-- `npm run web`: Runs the app in a web browser.
-- `npm run lint`: Lints the code using ESLint.
+- `bun start`: Runs the app in development mode.
+- `bun run android`: Runs the app on a connected Android device or emulator.
+- `bun run ios`: Runs the app on the iOS simulator.
+- `bun run web`: Runs the app in a web browser.
+- `bun run lint`: Lints the code using ESLint.
