@@ -227,19 +227,6 @@ export default function WorkoutScreen() {
     }, [timerState.phase])
 
     useEffect(() => {
-        // Auto-start only on first load when entering COUNTDOWN.
-        // Do NOT auto-start after completion; require explicit user action to restart.
-        if (
-            id &&
-            !timerState.isRunning &&
-            !timerState.isPaused &&
-            timerState.phase === Phase.COUNTDOWN
-        ) {
-            start()
-        }
-    }, [id, start, timerState.isRunning, timerState.isPaused, timerState.phase])
-
-    useEffect(() => {
         if (timerState.phase === Phase.COMPLETE) {
             setShowCompletionModal(true)
         }
@@ -395,6 +382,11 @@ export default function WorkoutScreen() {
                 <TimerDisplay
                     timerState={timerState}
                     totalRounds={totalRounds}
+                    onPress={() => {
+                        if (!timerState.isRunning && timerState.phase === Phase.COUNTDOWN) {
+                            start()
+                        }
+                    }}
                 />
 
                 <View style={styles.controls}>

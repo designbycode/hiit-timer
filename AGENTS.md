@@ -1,5 +1,8 @@
 # ⚠️ CRITICAL RULES - READ FIRST
 
+
+
+
 ## Before Making ANY Changes:
 
 1. **NEVER use deprecated packages** - If you see a deprecation warning, STOP and migrate immediately
