@@ -1,35 +1,48 @@
 import React from 'react'
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    Dimensions,
-} from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Workout } from '@/libs/types/workout'
 import { formatTimeShort } from '@/libs/utils/time'
-import { colors, fontSizes, spacing } from '@/libs/constants/theme'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withSpring,
-    withTiming,
-    runOnJS,
-} from 'react-native-reanimated'
+import { colors, spacing } from '@/libs/constants/theme'
+import { Swipeable } from 'react-native-gesture-handler'
+import { useAudio } from '@/libs/contexts/AudioContext'
+import { useSettingsStore } from '@/libs/store/settingsStore'
+import { hapticManager } from '@/libs/services/alerts/HapticManager'
 
 interface WorkoutCardProps {
     workout: Workout
     onPress: () => void
-    onDeleteRequest?: () => void
+    onDelete?: (workoutId: string) => Promise<void>
 }
 
 export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(
-    ({ workout, onPress, onDeleteRequest }) => {
-        const isPressed = useSharedValue(false)
-        const translateX = useSharedValue(0)
-        const screenWidth = Dimensions.get('window').width
+    ({ workout, onPress, onDelete }) => {
+        const isCustom = !workout.isPreset
+        // Swipe handled by Swipeable; no manual pan gesture required
+
+        const { playButtonClick } = useAudio()
+        const { soundEnabled, vibrationEnabled } = useSettingsStore()
+
+        const handleFeedback = async () => {
+            if (vibrationEnabled) {
+                await hapticManager.trigger('medium')
+            }
+            if (soundEnabled) {
+                // Reuse button click as a short cue; can be customized later
+                playButtonClick()
+            }
+        }
+
+        const handleDelete = async () => {
+            try {
+                await handleFeedback()
+                if (onDelete) {
+                    await onDelete(workout.id)
+                }
+            } catch (e) {
+                console.error('Delete failed', e)
+            }
+        }
 
         const totalDuration = React.useMemo(() => {
             let total = 0
@@ -51,82 +64,75 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(
             return `0:${secs.toString().padStart(2, '0')}`
         }
 
-        const pan = Gesture.Pan()
-            .enabled(!workout.isPreset)
-            .onUpdate((e) => {
-                // Only allow swiping left
-                const tx = Math.min(0, e.translationX)
-                translateX.value = tx
-            })
-            .onEnd(() => {
-                const THRESHOLD = -80
-                if (translateX.value < THRESHOLD) {
-                    // fling out and request delete
-                    translateX.value = withTiming(
-                        -screenWidth,
-                        { duration: 180 },
-                        (finished) => {
-                            if (finished && onDeleteRequest) {
-                                runOnJS(onDeleteRequest)()
-                            }
-                        }
-                    )
-                } else {
-                    translateX.value = withSpring(0)
-                }
-            })
+        // Swipe handled by Swipeable; no additional gestures or animations needed
 
-        const pressGesture = Gesture.LongPress()
-            .onStart(() => {
-                isPressed.value = true
-            })
-            .onEnd(() => {
-                isPressed.value = false
-            })
-            .onFinalize(() => {
-                isPressed.value = false
-            })
-
-        const composed = Gesture.Simultaneous(pan, pressGesture)
-
-        const animatedStyle = useAnimatedStyle(() => ({
-            transform: [
-                { translateX: translateX.value },
-                { scale: withSpring(isPressed.value ? 1.02 : 1) },
-            ],
-        }))
+        const Wrapper: any = workout.isPreset ? View : Swipeable
 
         return (
-            <GestureDetector gesture={composed}>
+            <>
                 <View style={styles.swipeBackground}>
-                    {!workout.isPreset && (
-                        <View style={styles.deleteBackground}>
-                            <Ionicons
-                                name="trash-outline"
-                                size={20}
-                                color={colors.dark.error}
-                            />
-                            <Text style={styles.deleteLabel}>Delete</Text>
-                        </View>
-                    )}
-                    <Animated.View style={animatedStyle}>
+                    <Wrapper
+                        {...(!workout.isPreset
+                            ? {
+                                  friction: 2,
+                                  rightThreshold: 60,
+                                  overshootRight: false,
+                                  renderRightActions: () => (
+                                      <TouchableOpacity
+                                          style={styles.rightAction}
+                                          onPress={handleDelete}
+                                          activeOpacity={0.85}
+                                      >
+                                          <Ionicons
+                                              name="trash-outline"
+                                              size={20}
+                                              color={colors.dark.error}
+                                          />
+                                          <Text style={styles.deleteLabel}>
+                                              Delete
+                                          </Text>
+                                      </TouchableOpacity>
+                                  ),
+                                  onSwipeableOpen: async (
+                                      direction: 'left' | 'right'
+                                  ) => {
+                                      if (direction === 'right') {
+                                          await handleFeedback()
+                                          handleDelete()
+                                      }
+                                  },
+                              }
+                            : {})}
+                    >
                         <TouchableOpacity
                             style={[
                                 styles.card,
-                                workout.isPreset && styles.presetCard,
+                                workout.isPreset
+                                    ? styles.presetCard
+                                    : styles.customCard,
                             ]}
                             onPress={onPress}
                             activeOpacity={0.7}
                         >
                             {/* Accent bar */}
-                            <View style={styles.accent} />
+                            <View
+                                style={[
+                                    styles.accent,
+                                    isCustom ? styles.customAccent : null,
+                                ]}
+                            />
 
                             {/* Main content */}
                             <View style={styles.content}>
                                 <View style={styles.headerRow}>
-                                    <Text style={styles.name} numberOfLines={1}>
-                                        {workout.name}
-                                    </Text>
+                                    <View style={styles.headerLeftRow}>
+                                        <Text
+                                            style={styles.name}
+                                            numberOfLines={1}
+                                        >
+                                            {workout.name}
+                                        </Text>
+                                    </View>
                                     <View style={styles.durationPill}>
                                         <Ionicons
                                             name="time-outline"
@@ -196,9 +202,9 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(
                                 </TouchableOpacity>
                             </View>
                         </TouchableOpacity>
-                    </Animated.View>
+                    </Wrapper>
                 </View>
-            </GestureDetector>
+            </>
         )
     },
     (prev, next) =>
@@ -239,9 +245,9 @@ const styles = StyleSheet.create({
     headerRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
     },
     name: {
-        flex: 1,
         color: colors.dark.text,
         fontWeight: '600',
         fontSize: 16,
@@ -264,6 +270,13 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         letterSpacing: 0.2,
         marginLeft: 2,
+    },
+    headerLeftRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexShrink: 1,
+        minWidth: 0,
+        gap: 6,
     },
     metaRow: {
         flexDirection: 'row',
@@ -288,8 +301,22 @@ const styles = StyleSheet.create({
     actions: {
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: 'auto',
         paddingLeft: 8,
+    },
+    swipeHint: {
+        position: 'absolute',
+        left: 8,
+        top: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        opacity: 0.6,
+    },
+    swipeHintText: {
+        color: colors.dark.muted,
+        fontSize: 11,
+        fontWeight: '600',
+        letterSpacing: 0.2,
     },
     playButton: {
         width: 40,
@@ -301,19 +328,18 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     swipeBackground: {
+        width: '100%',
         marginHorizontal: 12,
         marginVertical: 6,
         position: 'relative',
     },
-    deleteBackground: {
-        position: 'absolute',
-        right: 16,
-        top: 0,
-        bottom: 0,
+    rightAction: {
+        width: 100,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: colors.dark.error + '20',
         flexDirection: 'row',
-        gap: 8,
+        gap: 6,
     },
     deleteLabel: {
         color: colors.dark.error,
@@ -322,5 +348,12 @@ const styles = StyleSheet.create({
     },
     presetCard: {
         opacity: 0.95,
+    },
+    customCard: {
+        borderColor: colors.dark.divider,
+        backgroundColor: colors.dark.surface,
+    },
+    customAccent: {
+        backgroundColor: colors.dark.secondary,
     },
 })

@@ -63,7 +63,7 @@ class AlertService {
     const phaseNames: Record<Phase, string> = {
       [Phase.COUNTDOWN]: 'Get ready',
       [Phase.WARM_UP]: 'Warm up',
-      [Phase.WORK]: 'Work',
+      [Phase.WORK]: 'Workout',
       [Phase.REST]: 'Rest',
       [Phase.COOL_DOWN]: 'Cool down',
       [Phase.COMPLETE]: 'Complete',

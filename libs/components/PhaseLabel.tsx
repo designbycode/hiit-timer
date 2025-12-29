@@ -16,7 +16,7 @@ interface PhaseLabelProps {
 const phaseLabels: Record<Phase, string> = {
   [Phase.COUNTDOWN]: 'GET READY',
   [Phase.WARM_UP]: 'WARM UP',
-  [Phase.WORK]: 'WORK',
+  [Phase.WORK]: 'WORKOUT',
   [Phase.REST]: 'REST',
   [Phase.COOL_DOWN]: 'COOL DOWN',
   [Phase.COMPLETE]: 'COMPLETE',

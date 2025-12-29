@@ -9,6 +9,7 @@ import { Workout } from '@/libs/types/workout'
 import { useButtonSound } from '@/libs/hooks/useButtonSound'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native'
 import Animated, { Layout } from 'react-native-reanimated'
@@ -25,12 +26,12 @@ export default function HomeScreen() {
     const [modalMessage, setModalMessage] = useState('')
     const [modalButtons, setModalButtons] = useState<any[]>([])
 
-    const showAlert = (title: string, message: string, buttons: any[]) => {
-        setModalTitle(title)
-        setModalMessage(message)
-        setModalButtons(buttons)
-        setModalVisible(true)
-    }
+    // Undo toast state
+    const [lastDeleted, setLastDeleted] = useState<Workout | null>(null)
+    const [undoTimer, setUndoTimer] = useState<ReturnType<
+        typeof setTimeout
+    > | null>(null)
+    const [showUndo, setShowUndo] = useState(false)
 
     useEffect(() => {
         loadWorkouts()
@@ -62,7 +63,7 @@ export default function HomeScreen() {
         }
     }, [workouts, loading, setDefaultWorkout])
 
-    const loadWorkouts = async () => {
+    const loadWorkouts = useCallback(async () => {
         try {
             const saved = await storageService.loadWorkouts()
             setWorkouts(saved)
@@ -71,10 +72,17 @@ export default function HomeScreen() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
+
+    // Refresh list when returning to this screen
+    useFocusEffect(
+        useCallback(() => {
+            loadWorkouts()
+        }, [loadWorkouts])
+    )
 
     const myWorkouts = useMemo(() => {
-        return [...PRESETS, ...workouts];
+        return [...PRESETS, ...workouts]
     }, [workouts])
 
     const handleWorkoutPress = useCallback(
@@ -86,28 +94,47 @@ export default function HomeScreen() {
         [router, setWorkout]
     )
 
-    const handleDelete = useCallback(async (workout: Workout) => {
-        showAlert(
-            'Delete Workout',
-            `Are you sure you want to delete "${workout.name}"?`,
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                    onPress: () => setModalVisible(false),
-                },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await storageService.deleteWorkout(workout.id)
-                        setModalVisible(false)
-                        loadWorkouts()
-                    },
-                },
-            ]
-        )
-    }, [])
+    const handleDelete = useCallback(
+        async (id: string) => {
+            try {
+                const all = [...PRESETS, ...workouts]
+                const found = all.find((w) => w.id === id) || null
+                await storageService.deleteWorkout(id)
+                await storageService.flush?.()
+                setLastDeleted(found)
+                setShowUndo(true)
+                // Auto-hide after 4 seconds
+                if (undoTimer) clearTimeout(undoTimer)
+                const t = setTimeout(() => {
+                    setShowUndo(false)
+                    setLastDeleted(null)
+                    setUndoTimer(null)
+                }, 4000)
+                setUndoTimer(t)
+                await loadWorkouts()
+            } catch (e) {
+                console.error('Failed to delete workout:', e)
+            }
+        },
+        [workouts, loadWorkouts, undoTimer]
+    )
+
+    const handleUndo = useCallback(async () => {
+        try {
+            if (lastDeleted) {
+                await storageService.saveWorkout(lastDeleted)
+                await storageService.flush?.()
+                await loadWorkouts()
+            }
+        } catch (e) {
+            console.error('Failed to undo delete:', e)
+        } finally {
+            if (undoTimer) clearTimeout(undoTimer)
+            setUndoTimer(null)
+            setShowUndo(false)
+            setLastDeleted(null)
+        }
+    }, [lastDeleted, loadWorkouts, undoTimer])
 
     const handleCreateWorkout = useCallback(() => {
         router.push('/create-workout')
@@ -151,11 +178,7 @@ export default function HomeScreen() {
                         <WorkoutCard
                             workout={item}
                             onPress={() => handleWorkoutPress(item)}
-                            onDeleteRequest={
-                                !item.isPreset
-                                    ? () => handleDelete(item)
-                                    : undefined
-                            }
+                            onDelete={!item.isPreset ? handleDelete : undefined}
                         />
                     </Animated.View>
                 )}
@@ -204,6 +227,19 @@ export default function HomeScreen() {
                 buttons={modalButtons}
                 onRequestClose={() => setModalVisible(false)}
             />
+
+            {showUndo && (
+                <View style={styles.toastContainer}>
+                    <View style={styles.toast}>
+                        <Text style={styles.toastText}>
+                            Deleted{lastDeleted ? `: ${lastDeleted.name}` : ''}
+                        </Text>
+                        <TouchableOpacity onPress={handleUndo}>
+                            <Text style={styles.toastUndo}>Undo</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
         </View>
     )
 }
@@ -305,5 +341,38 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: fontSizes.lg,
         fontWeight: '600',
+    },
+    toastContainer: {
+        position: 'absolute',
+        left: spacing.md,
+        right: spacing.md,
+        bottom: 70,
+    },
+    toast: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: colors.dark.surfaceAlt,
+        borderColor: colors.dark.border,
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    toastText: {
+        color: colors.dark.text,
+        fontSize: fontSizes.md,
+        fontWeight: '500',
+    },
+    toastUndo: {
+        color: colors.dark.primary,
+        fontSize: fontSizes.md,
+        fontWeight: '700',
+        marginLeft: spacing.md,
     },
 })

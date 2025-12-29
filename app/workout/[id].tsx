@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     Text,
     Modal,
+    Animated,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams } from 'expo-router'
@@ -43,6 +44,38 @@ export default function WorkoutScreen() {
     } = useTimer(id || null)
     const { handlePressIn } = useButtonSound()
     const [showCompletionModal, setShowCompletionModal] = useState(false)
+    const [completionVisible, setCompletionVisible] = useState(false)
+    const completionTranslateY = React.useRef(new Animated.Value(300)).current
+
+    const openCompletion = useCallback(() => {
+        setCompletionVisible(true)
+        requestAnimationFrame(() => {
+            completionTranslateY.setValue(300)
+            Animated.timing(completionTranslateY, {
+                toValue: 0,
+                duration: 250,
+                useNativeDriver: true,
+            }).start()
+        })
+    }, [completionTranslateY])
+
+    const closeCompletion = useCallback(() => {
+        Animated.timing(completionTranslateY, {
+            toValue: 300,
+            duration: 200,
+            useNativeDriver: true,
+        }).start(({ finished }) => {
+            if (finished) setCompletionVisible(false)
+        })
+    }, [completionTranslateY])
+
+    useEffect(() => {
+        if (showCompletionModal) {
+            openCompletion()
+        } else if (completionVisible) {
+            closeCompletion()
+        }
+    }, [showCompletionModal, openCompletion, closeCompletion, completionVisible])
     const [modalVisible, setModalVisible] = useState(false)
     const [modalTitle, setModalTitle] = useState('')
     const [modalMessage, setModalMessage] = useState('')
@@ -185,7 +218,7 @@ export default function WorkoutScreen() {
         const labels: Record<Phase, string> = {
             [Phase.COUNTDOWN]: 'GET READY',
             [Phase.WARM_UP]: 'WARM UP',
-            [Phase.WORK]: 'WORK',
+            [Phase.WORK]: 'WORKOUT',
             [Phase.REST]: 'REST',
             [Phase.COOL_DOWN]: 'COOL DOWN',
             [Phase.COMPLETE]: 'FINISHED',
@@ -194,10 +227,17 @@ export default function WorkoutScreen() {
     }, [timerState.phase])
 
     useEffect(() => {
-        if (!timerState.isRunning && !timerState.isPaused && id) {
+        // Auto-start only on first load when entering COUNTDOWN.
+        // Do NOT auto-start after completion; require explicit user action to restart.
+        if (
+            id &&
+            !timerState.isRunning &&
+            !timerState.isPaused &&
+            timerState.phase === Phase.COUNTDOWN
+        ) {
             start()
         }
-    }, [id, start, timerState.isRunning, timerState.isPaused])
+    }, [id, start, timerState.isRunning, timerState.isPaused, timerState.phase])
 
     useEffect(() => {
         if (timerState.phase === Phase.COMPLETE) {
@@ -243,7 +283,7 @@ export default function WorkoutScreen() {
         const labels: Record<Phase, string> = {
             [Phase.COUNTDOWN]: 'Get Ready',
             [Phase.WARM_UP]: 'Warm Up',
-            [Phase.WORK]: 'Work',
+            [Phase.WORK]: 'Workout',
             [Phase.REST]: 'Rest',
             [Phase.COOL_DOWN]: 'Cool Down',
             [Phase.COMPLETE]: 'Finished',
@@ -280,15 +320,26 @@ export default function WorkoutScreen() {
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#000" />
 
-            {/* Completion Modal */}
+            {/* Completion Bottom Sheet */}
             <Modal
-                animationType="fade"
-                transparent={true}
-                visible={showCompletionModal}
+                animationType="none"
+                transparent
+                visible={completionVisible}
                 onRequestClose={() => setShowCompletionModal(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                    <TouchableOpacity
+                        style={styles.modalOverlayFill}
+                        activeOpacity={1}
+                        onPress={() => setShowCompletionModal(false)}
+                    />
+                    <Animated.View
+                        style={[
+                            styles.bottomSheet,
+                            { transform: [{ translateY: completionTranslateY }] },
+                        ]}
+                    >
+                        <View style={styles.sheetHandle} />
                         <Text style={styles.modalTitle}>Workout Complete!</Text>
                         <Text style={styles.modalText}>
                             Great job! You&apos;ve completed your workout in{' '}
@@ -300,9 +351,7 @@ export default function WorkoutScreen() {
                             onPress={handleRestart}
                             onPressIn={handlePressIn}
                         >
-                            <Text style={styles.buttonText}>
-                                Restart Workout
-                            </Text>
+                            <Text style={styles.buttonText}>Restart Workout</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -310,13 +359,9 @@ export default function WorkoutScreen() {
                             onPress={handleNewTimer}
                             onPressIn={handlePressIn}
                         >
-                            <Text
-                                style={[styles.buttonText, { color: '#000' }]}
-                            >
-                                Select New Timer
-                            </Text>
+                            <Text style={[styles.buttonText, { color: '#000' }]}>Select New Timer</Text>
                         </TouchableOpacity>
-                    </View>
+                    </Animated.View>
                 </View>
             </Modal>
 
@@ -432,10 +477,29 @@ const styles = StyleSheet.create({
     // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: spacing.lg,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        justifyContent: 'flex-end',
+    },
+    modalOverlayFill: {
+        flex: 1,
+    },
+    bottomSheet: {
+        backgroundColor: colors.dark.surface,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        borderColor: colors.dark.border,
+        borderWidth: 1,
+        paddingHorizontal: spacing.lg,
+        paddingTop: spacing.md,
+        paddingBottom: spacing.lg,
+    },
+    sheetHandle: {
+        alignSelf: 'center',
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: colors.dark.border,
+        marginBottom: spacing.sm,
     },
     modalContent: {
         backgroundColor: colors.dark.surface,

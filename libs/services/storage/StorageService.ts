@@ -25,6 +25,25 @@ class StorageService {
     }, 300);
   };
 
+  async flush(): Promise<void> {
+    try {
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = null;
+      }
+      const writes = Array.from(this.writeQueue.entries());
+      this.writeQueue.clear();
+      if (writes.length === 0) return;
+      await Promise.all(
+        writes.map(([key, value]) =>
+          AsyncStorage.setItem(key, JSON.stringify(value))
+        )
+      );
+    } catch (error) {
+      console.error('Error flushing storage writes:', error);
+    }
+  }
+
   async saveWorkout(workout: Workout): Promise<void> {
     try {
       const workouts = await this.loadWorkouts();

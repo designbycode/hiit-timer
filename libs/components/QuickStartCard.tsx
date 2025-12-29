@@ -51,7 +51,7 @@ export const QuickStartCard: React.FC<QuickStartCardProps> = React.memo(
                             <Text style={styles.title}>{workout.name}</Text>
                             <Text style={styles.details}>
                                 {formatDuration(totalDuration)} •{' '}
-                                {formatTimeShort(workout.workDuration)} Work /{' '}
+                                {formatTimeShort(workout.workDuration)} Workout /{' '}
                                 {formatTimeShort(workout.restDuration)} Rest
                             </Text>
                         </View>
