@@ -89,7 +89,8 @@ export default function WorkoutScreen() {
     }
 
     const handleBackPress = useCallback(() => {
-        if (timerState.isRunning && !timerState.isPaused) {
+        const hasStarted = !!timerState.startTime
+        if (hasStarted) {
             showAlert(
                 'Workout in Progress',
                 'Are you sure you want to leave? Your progress will be lost.',
@@ -112,8 +113,9 @@ export default function WorkoutScreen() {
             )
             return true
         }
+        // Not started yet; allow default back behavior
         return false
-    }, [router, stopTimer, timerState.isPaused, timerState.isRunning])
+    }, [router, stopTimer, timerState.startTime])
 
     useKeepScreenAwake(isActive && timerState.isRunning)
 
@@ -139,6 +141,12 @@ export default function WorkoutScreen() {
     }, [timerState.isPaused, pause, resume])
 
     const handleStop = useCallback(() => {
+        const hasStarted = !!timerState.startTime
+        if (!hasStarted) {
+            // If never started, no need to confirm — just go back
+            router.back()
+            return
+        }
         showAlert(
             'Stop Workout',
             'Are you sure you want to stop this workout?',
@@ -159,7 +167,7 @@ export default function WorkoutScreen() {
                 },
             ]
         )
-    }, [stopTimer, router])
+    }, [router, stopTimer, timerState.startTime])
 
     const handleSkip = useCallback(() => {
         skip()
@@ -197,6 +205,34 @@ export default function WorkoutScreen() {
             )
         }
     }, [restart, showCompletionModal])
+
+    const handleOpenSettings = useCallback(() => {
+        const hasStarted = !!timerState.startTime
+        if (!hasStarted) {
+            router.push('/settings')
+            return
+        }
+        showAlert(
+            'Workout in Progress',
+            'Are you sure you want to leave? Your progress will be lost.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                    onPress: () => setModalVisible(false),
+                },
+                {
+                    text: 'Leave',
+                    style: 'destructive',
+                    onPress: () => {
+                        setModalVisible(false)
+                        stopTimer()
+                        router.push('/settings')
+                    },
+                },
+            ]
+        )
+    }, [router, stopTimer, timerState.startTime])
 
     const totalRounds = useMemo(() => {
         return currentWorkout?.rounds || 0
@@ -364,7 +400,7 @@ export default function WorkoutScreen() {
                 <Text style={styles.headerTitle}>ACTIVE WORKOUT</Text>
                 <TouchableOpacity
                     style={styles.settingsButton}
-                    onPress={() => router.push('/settings')}
+                    onPress={handleOpenSettings}
                     onPressIn={handlePressIn}
                 >
                     <Ionicons name="settings" size={24} color="#fff" />
@@ -404,6 +440,16 @@ export default function WorkoutScreen() {
                                 size={24}
                                 color="#fff"
                             />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.controlButton,
+                                { backgroundColor: colors.dark.error },
+                            ]}
+                            onPress={handleStop}
+                            onPressIn={handlePressIn}
+                        >
+                            <Ionicons name="stop" size={24} color="#fff" />
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[

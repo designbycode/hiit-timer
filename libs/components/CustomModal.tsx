@@ -1,7 +1,5 @@
-
-import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { colors, fontSizes, spacing } from '@/libs/constants/theme';
 
 interface ButtonProps {
@@ -19,30 +17,49 @@ interface CustomModalProps {
 }
 
 const CustomModal: React.FC<CustomModalProps> = ({ visible, title, message, buttons, onRequestClose }) => {
-  const opacity = useSharedValue(0);
+  const translateY = useRef(new Animated.Value(300)).current;
+  const [isMounted, setIsMounted] = React.useState(false);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-    };
-  });
-
-  React.useEffect(() => {
-    opacity.value = withTiming(visible ? 1 : 0, { duration: 300 });
-  }, [visible, opacity]);
+  useEffect(() => {
+    if (visible) {
+      setIsMounted(true);
+      requestAnimationFrame(() => {
+        translateY.setValue(300);
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      });
+    } else if (isMounted) {
+      Animated.timing(translateY, {
+        toValue: 300,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setIsMounted(false);
+      });
+    }
+  }, [visible, isMounted, translateY]);
 
   return (
-    <Modal transparent visible={visible} onRequestClose={onRequestClose}> 
-      <Animated.View style={[styles.overlay, animatedStyle]}>
-        <View style={styles.modalContent}>
+    <Modal transparent visible={visible || isMounted} onRequestClose={onRequestClose}>
+      <View style={styles.overlay}>
+        <TouchableOpacity
+          style={styles.overlayFill}
+          activeOpacity={1}
+          onPress={onRequestClose}
+        />
+        <Animated.View style={[styles.bottomSheet, { transform: [{ translateY }] }]}>
+          <View style={styles.sheetHandle} />
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
-          <View style={styles.buttonContainer}>
+          {message ? <Text style={styles.message}>{message}</Text> : null}
+          <View style={styles.buttonColumn}>
             {buttons.map((button, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
-                  styles.button,
+                  styles.sheetButton,
                   button.style === 'destructive' && styles.destructiveButton,
                   button.style === 'cancel' && styles.cancelButton,
                 ]}
@@ -50,9 +67,9 @@ const CustomModal: React.FC<CustomModalProps> = ({ visible, title, message, butt
               >
                 <Text
                   style={[
-                    styles.buttonText,
-                    button.style === 'destructive' && styles.destructiveButtonText,
-                    button.style === 'cancel' && styles.cancelButtonText,
+                    styles.sheetButtonText,
+                    button.style === 'destructive' && styles.sheetButtonTextOnDark,
+                    button.style === 'cancel' && styles.sheetButtonTextOnDark,
                   ]}
                 >
                   {button.text}
@@ -60,8 +77,8 @@ const CustomModal: React.FC<CustomModalProps> = ({ visible, title, message, butt
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-      </Animated.View>
+        </Animated.View>
+      </View>
     </Modal>
   );
 };
@@ -69,36 +86,52 @@ const CustomModal: React.FC<CustomModalProps> = ({ visible, title, message, butt
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: colors.dark.surface,
-    borderRadius: 10,
-    padding: spacing.lg,
-    width: '80%',
-  },
-  title: {
-    fontSize: fontSizes.lg,
-    fontWeight: 'bold',
-    color: colors.dark.text,
-    marginBottom: spacing.sm,
-  },
-  message: {
-    fontSize: fontSizes.md,
-    color: colors.dark.muted,
-    marginBottom: spacing.lg,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
-  button: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 5,
-    marginLeft: spacing.sm,
+  overlayFill: {
+    flex: 1,
+  },
+  bottomSheet: {
+    backgroundColor: colors.dark.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderColor: colors.dark.border,
+    borderWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.dark.border,
+    marginBottom: spacing.sm,
+  },
+  title: {
+    color: colors.dark.text,
+    fontSize: fontSizes['2xl'],
+    fontWeight: 'bold',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  message: {
+    color: colors.dark.muted,
+    fontSize: fontSizes.md,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  buttonColumn: {
+    gap: spacing.md,
+  },
+  sheetButton: {
+    width: '100%',
+    padding: spacing.md,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: colors.dark.text,
   },
   destructiveButton: {
     backgroundColor: colors.dark.error,
@@ -106,17 +139,14 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: colors.dark.border,
   },
-  buttonText: {
-    color: colors.dark.primary,
+  sheetButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
     fontSize: fontSizes.md,
-    fontWeight: '600',
   },
-  destructiveButtonText: {
+  sheetButtonTextOnDark: {
     color: colors.dark.text,
   },
-  cancelButtonText: {
-    color: colors.dark.text,
-  }
 });
 
 export default CustomModal;
