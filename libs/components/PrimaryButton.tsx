@@ -86,12 +86,12 @@ const styles = StyleSheet.create({
         gap: spacing.sm,
     },
     primaryButton: {
-        backgroundColor: colors.accent,
+        backgroundColor: colors.dark.primary,
     },
     secondaryButton: {
         backgroundColor: 'transparent',
         borderWidth: 2,
-        borderColor: colors.dark.primary,
+        borderColor: colors.dark.accent,
     },
     dangerButton: {
         backgroundColor: colors.dark.error,

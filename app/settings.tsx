@@ -9,10 +9,6 @@ import { colors, spacing } from '@/libs/constants/theme'
 import { Button } from '@/libs/components/Button'
 import { AlertsSection } from '@/libs/components/settings/AlertsSection'
 import { SupportSection } from '@/libs/components/settings/SupportSection'
-import { AboutSection } from '@/libs/components/settings/AboutSection'
-import { TipsSection } from '@/libs/components/settings/TipsSection'
-import { FAQSection } from '@/libs/components/settings/FAQSection'
-import { LegalSection } from '@/libs/components/settings/LegalSection'
 
 export default function SettingsScreen() {
     const {
@@ -62,16 +58,15 @@ export default function SettingsScreen() {
                     onPressIn={handlePressIn}
                 />
 
-                
                 <SupportSection />
-                
-                <AboutSection />
-                
-                <TipsSection />
-                
-                <FAQSection />
-                
-                <LegalSection />
+
+                {/*<AboutSection />*/}
+
+                {/*<TipsSection />*/}
+
+                {/*<FAQSection />*/}
+
+                {/*<LegalSection />*/}
 
                 <View style={styles.footerActions}>
                     <Button

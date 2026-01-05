@@ -25,6 +25,7 @@ import { colors, fontSizes, spacing } from '@/libs/constants/theme'
 import { formatTime, formatTimeShort } from '@/libs/utils/time'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { hapticManager } from '@/libs/services/alerts/HapticManager'
+import Header from '@/libs/components/Header'
 
 export default function CreateWorkoutScreen() {
     const router = useRouter()
@@ -43,7 +44,7 @@ export default function CreateWorkoutScreen() {
     const [modalTitle, setModalTitle] = useState('')
     const [modalMessage, setModalMessage] = useState('')
     const [modalButtons, setModalButtons] = useState<any[]>([])
-    
+
     // Toggle states for warm-up and cool-down
     const [warmUpEnabled, setWarmUpEnabled] = useState(false)
     const [coolDownEnabled, setCoolDownEnabled] = useState(false)
@@ -51,25 +52,33 @@ export default function CreateWorkoutScreen() {
     // Slider state
     const sliderWidth = useRef(0)
     const isDragging = useRef(false)
-    
+
     // Focus state for name input
     const [nameInputFocused, setNameInputFocused] = useState(false)
-    
+
     // Slider dragging state for visual feedback
     const [isSliderDragging, setIsSliderDragging] = useState(false)
 
-    const updateWorkDurationFromPosition = useCallback((x: number) => {
-        if (sliderWidth.current === 0) return
-        const percentage = Math.max(0, Math.min(1, x / sliderWidth.current))
-        const value = Math.round(TIMINGS.MIN_WORK_DURATION + percentage * (TIMINGS.MAX_WORK_DURATION - TIMINGS.MIN_WORK_DURATION))
-        const currentValue = parseInt(workDuration || '0', 10)
-        if (value !== currentValue) {
-            setWorkDuration(String(value))
-            if (value % 10 === 0) { // Haptic feedback every 10 seconds
-                hapticManager.trigger('light')
+    const updateWorkDurationFromPosition = useCallback(
+        (x: number) => {
+            if (sliderWidth.current === 0) return
+            const percentage = Math.max(0, Math.min(1, x / sliderWidth.current))
+            const value = Math.round(
+                TIMINGS.MIN_WORK_DURATION +
+                    percentage *
+                        (TIMINGS.MAX_WORK_DURATION - TIMINGS.MIN_WORK_DURATION)
+            )
+            const currentValue = parseInt(workDuration || '0', 10)
+            if (value !== currentValue) {
+                setWorkDuration(String(value))
+                if (value % 10 === 0) {
+                    // Haptic feedback every 10 seconds
+                    hapticManager.trigger('light')
+                }
             }
-        }
-    }, [workDuration])
+        },
+        [workDuration]
+    )
 
     const panResponder = useRef(
         PanResponder.create({
@@ -108,10 +117,18 @@ export default function CreateWorkoutScreen() {
             setWorkDuration(currentWorkout.workDuration.toString())
             setRestDuration(currentWorkout.restDuration.toString())
             setRounds(currentWorkout.rounds.toString())
-            const hasWarmUp = currentWorkout.warmUpDuration && currentWorkout.warmUpDuration > 0
-            const hasCoolDown = currentWorkout.coolDownDuration && currentWorkout.coolDownDuration > 0
-            setWarmUpDuration(hasWarmUp ? currentWorkout.warmUpDuration!.toString() : '60')
-            setCoolDownDuration(hasCoolDown ? currentWorkout.coolDownDuration!.toString() : '60')
+            const hasWarmUp =
+                currentWorkout.warmUpDuration &&
+                currentWorkout.warmUpDuration > 0
+            const hasCoolDown =
+                currentWorkout.coolDownDuration &&
+                currentWorkout.coolDownDuration > 0
+            setWarmUpDuration(
+                hasWarmUp ? currentWorkout.warmUpDuration!.toString() : '60'
+            )
+            setCoolDownDuration(
+                hasCoolDown ? currentWorkout.coolDownDuration!.toString() : '60'
+            )
             setWarmUpEnabled(!!hasWarmUp)
             setCoolDownEnabled(!!hasCoolDown)
         }
@@ -196,14 +213,29 @@ export default function CreateWorkoutScreen() {
         const work = parseInt(workDuration || '0', 10) || 0
         const rest = parseInt(restDuration || '0', 10) || 0
         const roundsNum = parseInt(rounds || '0', 10) || 0
-        const warm = warmUpEnabled ? (parseInt(warmUpDuration || '0', 10) || 0) : 0
-        const cool = coolDownEnabled ? (parseInt(coolDownDuration || '0', 10) || 0) : 0
+        const warm = warmUpEnabled
+            ? parseInt(warmUpDuration || '0', 10) || 0
+            : 0
+        const cool = coolDownEnabled
+            ? parseInt(coolDownDuration || '0', 10) || 0
+            : 0
         if (roundsNum <= 0) return warm + cool
         const betweenRests = Math.max(0, roundsNum - 1)
         return warm + roundsNum * work + betweenRests * rest + cool
-    }, [workDuration, restDuration, rounds, warmUpDuration, coolDownDuration, warmUpEnabled, coolDownEnabled])
+    }, [
+        workDuration,
+        restDuration,
+        rounds,
+        warmUpDuration,
+        coolDownDuration,
+        warmUpEnabled,
+        coolDownEnabled,
+    ])
 
-    const totalLabel = React.useMemo(() => formatTimeShort(totalSeconds), [totalSeconds])
+    const totalLabel = React.useMemo(
+        () => formatTimeShort(totalSeconds),
+        [totalSeconds]
+    )
 
     const handleSave = useCallback(async () => {
         if (!validate()) return
@@ -216,12 +248,14 @@ export default function CreateWorkoutScreen() {
                 workDuration: parseInt(workDuration, 10),
                 restDuration: parseInt(restDuration, 10),
                 rounds: parseInt(rounds, 10),
-                warmUpDuration: warmUpEnabled && warmUpDuration
-                    ? parseInt(warmUpDuration, 10)
-                    : undefined,
-                coolDownDuration: coolDownEnabled && coolDownDuration
-                    ? parseInt(coolDownDuration, 10)
-                    : undefined,
+                warmUpDuration:
+                    warmUpEnabled && warmUpDuration
+                        ? parseInt(warmUpDuration, 10)
+                        : undefined,
+                coolDownDuration:
+                    coolDownEnabled && coolDownDuration
+                        ? parseInt(coolDownDuration, 10)
+                        : undefined,
             }
 
             await storageService.saveWorkout(workout)
@@ -282,13 +316,12 @@ export default function CreateWorkoutScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
                 {/* Custom Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-                        <Text style={styles.cancelText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>{isEditing ? 'Edit Workout' : 'Create Workout'}</Text>
-                    <View style={styles.headerButton} />
-                </View>
+
+                <Header
+                    title={isEditing ? 'Edit Workout' : 'Create Workout'}
+                    onBackPress={() => router.back()}
+                    hideRightIcon
+                />
 
                 <ScrollView
                     style={styles.scroll}
@@ -296,13 +329,14 @@ export default function CreateWorkoutScreen() {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-
                     {/* Workout Name Section */}
                     <Text style={styles.sectionHeader}>WORKOUT NAME</Text>
-                    <View style={[
-                        styles.nameInputCard,
-                        nameInputFocused && styles.nameInputCardFocused
-                    ]}>
+                    <View
+                        style={[
+                            styles.nameInputCard,
+                            nameInputFocused && styles.nameInputCardFocused,
+                        ]}
+                    >
                         <TextInput
                             style={styles.nameInput}
                             value={name}
@@ -314,46 +348,66 @@ export default function CreateWorkoutScreen() {
                             maxLength={50}
                         />
                         {name.length > 0 && (
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.clearButton}
                                 onPress={() => {
                                     hapticManager.trigger('light')
                                     setName('')
                                 }}
                             >
-                                <Ionicons name="close-circle" size={20} color={colors.dark.muted} />
+                                <Ionicons
+                                    name="close-circle"
+                                    size={20}
+                                    color={colors.dark.muted}
+                                />
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity style={styles.editIconButton}>
-                            <Ionicons 
-                                name="create-outline" 
-                                size={20} 
-                                color={nameInputFocused ? colors.accent : colors.dark.muted} 
+                            <Ionicons
+                                name="create-outline"
+                                size={20}
+                                color={
+                                    nameInputFocused
+                                        ? colors.accent
+                                        : colors.dark.muted
+                                }
                             />
                         </TouchableOpacity>
                     </View>
                     {name.length > 40 && (
-                        <Text style={styles.charCount}>{name.length}/50 characters</Text>
+                        <Text style={styles.charCount}>
+                            {name.length}/50 characters
+                        </Text>
                     )}
 
                     {/* The Loop Section */}
                     <Text style={styles.sectionHeader}>THE LOOP</Text>
-                    
+
                     {/* Work Duration with Slider */}
                     <View style={styles.loopCard}>
                         <View style={styles.workHeader}>
                             <View style={styles.workLabelRow}>
-                                <Ionicons name="fitness" size={20} color={colors.accent} />
+                                <Ionicons
+                                    name="fitness"
+                                    size={20}
+                                    color={colors.accent}
+                                />
                                 <Text style={styles.workLabel}>Work</Text>
                             </View>
                             <View style={styles.workValueContainer}>
-                                <Text style={[styles.workValue, isSliderDragging && styles.workValueDragging]}>
+                                <Text
+                                    style={[
+                                        styles.workValue,
+                                        isSliderDragging &&
+                                            styles.workValueDragging,
+                                    ]}
+                                >
                                     {workDuration}
                                 </Text>
                                 <Text style={styles.workUnit}>s</Text>
                             </View>
                         </View>
-                        <View 
+                        <View
                             style={styles.sliderContainer}
                             onLayout={(e) => {
                                 sliderWidth.current = e.nativeEvent.layout.width
@@ -361,47 +415,72 @@ export default function CreateWorkoutScreen() {
                             {...panResponder.panHandlers}
                         >
                             <View style={styles.sliderTrack}>
-                                <View 
+                                <View
                                     style={[
-                                        styles.sliderFill, 
-                                        { width: `${((parseInt(workDuration || '0') - TIMINGS.MIN_WORK_DURATION) / (TIMINGS.MAX_WORK_DURATION - TIMINGS.MIN_WORK_DURATION)) * 100}%` }
-                                    ]} 
+                                        styles.sliderFill,
+                                        {
+                                            width: `${((parseInt(workDuration || '0') - TIMINGS.MIN_WORK_DURATION) / (TIMINGS.MAX_WORK_DURATION - TIMINGS.MIN_WORK_DURATION)) * 100}%`,
+                                        },
+                                    ]}
                                 />
-                                <View 
+                                <View
                                     style={[
-                                        styles.sliderThumb, 
-                                        isSliderDragging && styles.sliderThumbDragging,
-                                        { left: `${((parseInt(workDuration || '0') - TIMINGS.MIN_WORK_DURATION) / (TIMINGS.MAX_WORK_DURATION - TIMINGS.MIN_WORK_DURATION)) * 100}%` }
-                                    ]} 
+                                        styles.sliderThumb,
+                                        isSliderDragging &&
+                                            styles.sliderThumbDragging,
+                                        {
+                                            left: `${((parseInt(workDuration || '0') - TIMINGS.MIN_WORK_DURATION) / (TIMINGS.MAX_WORK_DURATION - TIMINGS.MIN_WORK_DURATION)) * 100}%`,
+                                        },
+                                    ]}
                                 />
                             </View>
                             {/* Min/Max labels */}
                             <View style={styles.sliderLabels}>
-                                <Text style={styles.sliderLabelText}>{TIMINGS.MIN_WORK_DURATION}s</Text>
-                                <Text style={styles.sliderLabelText}>{formatTimeShort(TIMINGS.MAX_WORK_DURATION)}</Text>
+                                <Text style={styles.sliderLabelText}>
+                                    {TIMINGS.MIN_WORK_DURATION}s
+                                </Text>
+                                <Text style={styles.sliderLabelText}>
+                                    {formatTimeShort(TIMINGS.MAX_WORK_DURATION)}
+                                </Text>
                             </View>
                         </View>
                         {/* Stepper buttons below slider */}
                         <View style={styles.workSteppers}>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.workStepperButton}
                                 onPress={() => {
                                     hapticManager.trigger('light')
-                                    const v = Math.max(TIMINGS.MIN_WORK_DURATION, (parseInt(workDuration || '0', 10) || 0) - 5)
+                                    const v = Math.max(
+                                        TIMINGS.MIN_WORK_DURATION,
+                                        (parseInt(workDuration || '0', 10) ||
+                                            0) - 5
+                                    )
                                     setWorkDuration(String(v))
                                 }}
                             >
-                                <Ionicons name="remove" size={18} color={colors.dark.text} />
+                                <Ionicons
+                                    name="remove"
+                                    size={18}
+                                    color={colors.dark.text}
+                                />
                             </TouchableOpacity>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.workStepperButton}
                                 onPress={() => {
                                     hapticManager.trigger('light')
-                                    const v = Math.min(TIMINGS.MAX_WORK_DURATION, (parseInt(workDuration || '0', 10) || 0) + 5)
+                                    const v = Math.min(
+                                        TIMINGS.MAX_WORK_DURATION,
+                                        (parseInt(workDuration || '0', 10) ||
+                                            0) + 5
+                                    )
                                     setWorkDuration(String(v))
                                 }}
                             >
-                                <Ionicons name="add" size={18} color={colors.dark.text} />
+                                <Ionicons
+                                    name="add"
+                                    size={18}
+                                    color={colors.dark.text}
+                                />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -410,29 +489,49 @@ export default function CreateWorkoutScreen() {
                     <View style={styles.compactCard}>
                         <View style={styles.compactLeft}>
                             <Text style={styles.compactLabel}>Rest</Text>
-                            <Text style={styles.compactSubLabel}>Recovery time</Text>
+                            <Text style={styles.compactSubLabel}>
+                                Recovery time
+                            </Text>
                         </View>
                         <View style={styles.compactStepper}>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.compactButton}
                                 onPress={() => {
                                     hapticManager.trigger('light')
-                                    const v = Math.max(TIMINGS.MIN_REST_DURATION, (parseInt(restDuration || '0', 10) || 0) - 5)
+                                    const v = Math.max(
+                                        TIMINGS.MIN_REST_DURATION,
+                                        (parseInt(restDuration || '0', 10) ||
+                                            0) - 5
+                                    )
                                     setRestDuration(String(v))
                                 }}
                             >
-                                <Ionicons name="remove" size={20} color={colors.dark.text} />
+                                <Ionicons
+                                    name="remove"
+                                    size={20}
+                                    color={colors.dark.text}
+                                />
                             </TouchableOpacity>
-                            <Text style={styles.compactValue}>{restDuration}s</Text>
-                            <TouchableOpacity 
+                            <Text style={styles.compactValue}>
+                                {restDuration}s
+                            </Text>
+                            <TouchableOpacity
                                 style={styles.compactButton}
                                 onPress={() => {
                                     hapticManager.trigger('light')
-                                    const v = Math.min(TIMINGS.MAX_REST_DURATION, (parseInt(restDuration || '0', 10) || 0) + 5)
+                                    const v = Math.min(
+                                        TIMINGS.MAX_REST_DURATION,
+                                        (parseInt(restDuration || '0', 10) ||
+                                            0) + 5
+                                    )
                                     setRestDuration(String(v))
                                 }}
                             >
-                                <Ionicons name="add" size={20} color={colors.dark.text} />
+                                <Ionicons
+                                    name="add"
+                                    size={20}
+                                    color={colors.dark.text}
+                                />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -441,29 +540,45 @@ export default function CreateWorkoutScreen() {
                     <View style={styles.compactCard}>
                         <View style={styles.compactLeft}>
                             <Text style={styles.compactLabel}>Rounds</Text>
-                            <Text style={styles.compactSubLabel}>Total sets</Text>
+                            <Text style={styles.compactSubLabel}>
+                                Total sets
+                            </Text>
                         </View>
                         <View style={styles.compactStepper}>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.compactButton}
                                 onPress={() => {
                                     hapticManager.trigger('light')
-                                    const v = Math.max(TIMINGS.MIN_ROUNDS, (parseInt(rounds || '0', 10) || 0) - 1)
+                                    const v = Math.max(
+                                        TIMINGS.MIN_ROUNDS,
+                                        (parseInt(rounds || '0', 10) || 0) - 1
+                                    )
                                     setRounds(String(v))
                                 }}
                             >
-                                <Ionicons name="remove" size={20} color={colors.dark.text} />
+                                <Ionicons
+                                    name="remove"
+                                    size={20}
+                                    color={colors.dark.text}
+                                />
                             </TouchableOpacity>
                             <Text style={styles.compactValue}>{rounds}</Text>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.compactButton}
                                 onPress={() => {
                                     hapticManager.trigger('light')
-                                    const v = Math.min(TIMINGS.MAX_ROUNDS, (parseInt(rounds || '0', 10) || 0) + 1)
+                                    const v = Math.min(
+                                        TIMINGS.MAX_ROUNDS,
+                                        (parseInt(rounds || '0', 10) || 0) + 1
+                                    )
                                     setRounds(String(v))
                                 }}
                             >
-                                <Ionicons name="add" size={20} color={colors.dark.text} />
+                                <Ionicons
+                                    name="add"
+                                    size={20}
+                                    color={colors.dark.text}
+                                />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -474,34 +589,65 @@ export default function CreateWorkoutScreen() {
                     {/* Warm-up Toggle */}
                     <View style={styles.extraCard}>
                         <View style={styles.extraIconContainer}>
-                            <Ionicons name="flame" size={24} color={colors.phase.WARM_UP} />
+                            <Ionicons
+                                name="flame"
+                                size={24}
+                                color={colors.phase.WARM_UP}
+                            />
                         </View>
                         <View style={styles.extraContent}>
                             <Text style={styles.extraLabel}>Warm-up</Text>
-                            <Text style={[styles.extraStatus, warmUpEnabled && styles.extraStatusEnabled]}>
-                                {warmUpEnabled ? `${formatTimeShort(parseInt(warmUpDuration || '60'))} enabled` : 'Disabled'}
+                            <Text
+                                style={[
+                                    styles.extraStatus,
+                                    warmUpEnabled && styles.extraStatusEnabled,
+                                ]}
+                            >
+                                {warmUpEnabled
+                                    ? `${formatTimeShort(parseInt(warmUpDuration || '60'))} enabled`
+                                    : 'Disabled'}
                             </Text>
                             {warmUpEnabled && (
                                 <View style={styles.extraSteppers}>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.extraStepperButton}
                                         onPress={() => {
                                             hapticManager.trigger('light')
-                                            const v = Math.max(5, (parseInt(warmUpDuration || '60', 10) || 60) - 15)
+                                            const v = Math.max(
+                                                5,
+                                                (parseInt(
+                                                    warmUpDuration || '60',
+                                                    10
+                                                ) || 60) - 15
+                                            )
                                             setWarmUpDuration(String(v))
                                         }}
                                     >
-                                        <Ionicons name="remove" size={16} color={colors.dark.text} />
+                                        <Ionicons
+                                            name="remove"
+                                            size={16}
+                                            color={colors.dark.text}
+                                        />
                                     </TouchableOpacity>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.extraStepperButton}
                                         onPress={() => {
                                             hapticManager.trigger('light')
-                                            const v = Math.min(TIMINGS.MAX_WARM_UP, (parseInt(warmUpDuration || '60', 10) || 60) + 15)
+                                            const v = Math.min(
+                                                TIMINGS.MAX_WARM_UP,
+                                                (parseInt(
+                                                    warmUpDuration || '60',
+                                                    10
+                                                ) || 60) + 15
+                                            )
                                             setWarmUpDuration(String(v))
                                         }}
                                     >
-                                        <Ionicons name="add" size={16} color={colors.dark.text} />
+                                        <Ionicons
+                                            name="add"
+                                            size={16}
+                                            color={colors.dark.text}
+                                        />
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -511,9 +657,13 @@ export default function CreateWorkoutScreen() {
                             onValueChange={(val) => {
                                 hapticManager.trigger('light')
                                 setWarmUpEnabled(val)
-                                if (val && !warmUpDuration) setWarmUpDuration('60')
+                                if (val && !warmUpDuration)
+                                    setWarmUpDuration('60')
                             }}
-                            trackColor={{ false: colors.dark.border, true: colors.accent }}
+                            trackColor={{
+                                false: colors.dark.border,
+                                true: colors.accent,
+                            }}
                             thumbColor={colors.dark.text}
                         />
                     </View>
@@ -521,34 +671,66 @@ export default function CreateWorkoutScreen() {
                     {/* Cool-down Toggle */}
                     <View style={styles.extraCard}>
                         <View style={styles.extraIconContainer}>
-                            <Ionicons name="snow" size={24} color={colors.phase.COOL_DOWN} />
+                            <Ionicons
+                                name="snow"
+                                size={24}
+                                color={colors.phase.COOL_DOWN}
+                            />
                         </View>
                         <View style={styles.extraContent}>
                             <Text style={styles.extraLabel}>Cool-down</Text>
-                            <Text style={[styles.extraStatus, coolDownEnabled && styles.extraStatusEnabled]}>
-                                {coolDownEnabled ? `${formatTimeShort(parseInt(coolDownDuration || '60'))} enabled` : 'Disabled'}
+                            <Text
+                                style={[
+                                    styles.extraStatus,
+                                    coolDownEnabled &&
+                                        styles.extraStatusEnabled,
+                                ]}
+                            >
+                                {coolDownEnabled
+                                    ? `${formatTimeShort(parseInt(coolDownDuration || '60'))} enabled`
+                                    : 'Disabled'}
                             </Text>
                             {coolDownEnabled && (
                                 <View style={styles.extraSteppers}>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.extraStepperButton}
                                         onPress={() => {
                                             hapticManager.trigger('light')
-                                            const v = Math.max(5, (parseInt(coolDownDuration || '60', 10) || 60) - 15)
+                                            const v = Math.max(
+                                                5,
+                                                (parseInt(
+                                                    coolDownDuration || '60',
+                                                    10
+                                                ) || 60) - 15
+                                            )
                                             setCoolDownDuration(String(v))
                                         }}
                                     >
-                                        <Ionicons name="remove" size={16} color={colors.dark.text} />
+                                        <Ionicons
+                                            name="remove"
+                                            size={16}
+                                            color={colors.dark.text}
+                                        />
                                     </TouchableOpacity>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.extraStepperButton}
                                         onPress={() => {
                                             hapticManager.trigger('light')
-                                            const v = Math.min(TIMINGS.MAX_COOL_DOWN, (parseInt(coolDownDuration || '60', 10) || 60) + 15)
+                                            const v = Math.min(
+                                                TIMINGS.MAX_COOL_DOWN,
+                                                (parseInt(
+                                                    coolDownDuration || '60',
+                                                    10
+                                                ) || 60) + 15
+                                            )
                                             setCoolDownDuration(String(v))
                                         }}
                                     >
-                                        <Ionicons name="add" size={16} color={colors.dark.text} />
+                                        <Ionicons
+                                            name="add"
+                                            size={16}
+                                            color={colors.dark.text}
+                                        />
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -558,17 +740,25 @@ export default function CreateWorkoutScreen() {
                             onValueChange={(val) => {
                                 hapticManager.trigger('light')
                                 setCoolDownEnabled(val)
-                                if (val && !coolDownDuration) setCoolDownDuration('60')
+                                if (val && !coolDownDuration)
+                                    setCoolDownDuration('60')
                             }}
-                            trackColor={{ false: colors.dark.border, true: colors.accent }}
+                            trackColor={{
+                                false: colors.dark.border,
+                                true: colors.accent,
+                            }}
                             thumbColor={colors.dark.text}
                         />
                     </View>
 
                     {/* Total Duration */}
                     <View style={styles.totalDurationContainer}>
-                        <Text style={styles.totalDurationLabel}>Total Duration</Text>
-                        <Text style={styles.totalDurationValue}>{formatTime(totalSeconds)}</Text>
+                        <Text style={styles.totalDurationLabel}>
+                            Total Duration
+                        </Text>
+                        <Text style={styles.totalDurationValue}>
+                            {formatTime(totalSeconds)}
+                        </Text>
                     </View>
 
                     {/* Save Button */}
@@ -591,13 +781,13 @@ export default function CreateWorkoutScreen() {
                     )}
                 </ScrollView>
 
-            <CustomModal
-                visible={modalVisible}
-                title={modalTitle}
-                message={modalMessage}
-                buttons={modalButtons}
-                onRequestClose={() => setModalVisible(false)}
-            />
+                <CustomModal
+                    visible={modalVisible}
+                    title={modalTitle}
+                    message={modalMessage}
+                    buttons={modalButtons}
+                    onRequestClose={() => setModalVisible(false)}
+                />
             </KeyboardAvoidingView>
         </SafeAreaView>
     )
@@ -611,32 +801,11 @@ const styles = StyleSheet.create({
     flex: {
         flex: 1,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
-        backgroundColor: colors.dark.background,
-    },
-    headerButton: {
-        minWidth: 60,
-    },
-    cancelText: {
-        color: colors.dark.muted,
-        fontSize: fontSizes.md,
-        fontWeight: '400',
-    },
-    headerTitle: {
-        color: colors.dark.text,
-        fontSize: fontSizes.lg,
-        fontWeight: '700',
-    },
     scroll: {
         flex: 1,
     },
     content: {
-        padding: spacing.lg,
+        padding: spacing.md,
         paddingBottom: 40,
     },
     sectionHeader: {
@@ -644,13 +813,13 @@ const styles = StyleSheet.create({
         fontSize: fontSizes.xs,
         fontWeight: '700',
         letterSpacing: 1.2,
-        marginTop: spacing.lg,
+        marginTop: spacing.md,
         marginBottom: spacing.sm,
     },
     nameInputCard: {
         backgroundColor: colors.dark.surface,
         borderRadius: 16,
-        padding: spacing.lg,
+        padding: spacing.md,
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: spacing.md,
@@ -683,14 +852,14 @@ const styles = StyleSheet.create({
     loopCard: {
         backgroundColor: colors.dark.surface,
         borderRadius: 16,
-        padding: spacing.lg,
+        padding: spacing.md,
         marginBottom: spacing.md,
     },
     workHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: spacing.lg,
+        marginBottom: spacing.md,
     },
     workLabelRow: {
         flexDirection: 'row',
@@ -786,7 +955,7 @@ const styles = StyleSheet.create({
     compactCard: {
         backgroundColor: colors.dark.surface,
         borderRadius: 16,
-        padding: spacing.lg,
+        padding: spacing.md,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -829,7 +998,7 @@ const styles = StyleSheet.create({
     extraCard: {
         backgroundColor: colors.dark.surface,
         borderRadius: 16,
-        padding: spacing.lg,
+        padding: spacing.md,
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: spacing.md,
@@ -879,7 +1048,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: spacing.lg,
+        paddingVertical: spacing.md,
         marginTop: spacing.md,
     },
     totalDurationLabel: {

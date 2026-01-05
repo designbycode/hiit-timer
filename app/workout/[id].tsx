@@ -8,6 +8,7 @@ import {
     Text,
     Modal,
     Animated,
+    AppState,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams } from 'expo-router'
@@ -46,6 +47,7 @@ export default function WorkoutScreen() {
     const { handlePressIn } = useButtonSound()
     const [showCompletionModal, setShowCompletionModal] = useState(false)
     const [completionVisible, setCompletionVisible] = useState(false)
+    const [wasPausedByUser, setWasPausedByUser] = useState(false)
 
     const completionTranslateY = React.useRef(new Animated.Value(300)).current
 
@@ -83,6 +85,27 @@ export default function WorkoutScreen() {
         closeCompletion,
         completionVisible,
     ])
+
+    // Handle app state changes (power button / screen lock)
+    useEffect(() => {
+        const handleAppStateChange = (nextAppState: string) => {
+            if (nextAppState === 'background' || nextAppState === 'inactive') {
+                // App is going to background (power button pressed, screen locked, etc.)
+                if (isActive && !wasPausedByUser) {
+                    pause()
+                    setWasPausedByUser(false) // This was auto-paused, not user-paused
+                }
+            } else if (nextAppState === 'active') {
+                // App is coming back to foreground
+                // Don't auto-resume - let user decide when to continue
+                setWasPausedByUser(false)
+            }
+        }
+
+        const subscription = AppState.addEventListener('change', handleAppStateChange)
+        
+        return () => subscription?.remove()
+    }, [isActive, pause, wasPausedByUser])
     const [modalVisible, setModalVisible] = useState(false)
     const [modalTitle, setModalTitle] = useState('')
     const [modalMessage, setModalMessage] = useState('')
@@ -141,8 +164,12 @@ export default function WorkoutScreen() {
 
     const handlePauseResume = useCallback(() => {
         if (timerState.isPaused) {
+            // User is manually resuming
+            setWasPausedByUser(false)
             resume()
         } else {
+            // User is manually pausing
+            setWasPausedByUser(true)
             pause()
         }
     }, [timerState.isPaused, pause, resume])
@@ -274,6 +301,7 @@ export default function WorkoutScreen() {
             setShowCompletionModal(true)
         }
     }, [timerState.phase])
+
 
     const getNextPhaseInfo = useCallback(() => {
         const workout = currentWorkout
