@@ -1,0 +1,84 @@
+import React from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { colors, spacing, fontSizes } from '@/libs/constants/theme'
+import { SafeAreaView } from 'react-native-safe-area-context'
+
+interface HeaderProps {
+  title: string
+  onBackPress?: () => void
+  onRightPress?: () => void
+  rightIconName?: keyof typeof Ionicons.glyphMap
+  hideRightIcon?: boolean
+  testID?: string
+}
+
+export function Header({
+  title,
+  onBackPress,
+  onRightPress,
+  rightIconName,
+  hideRightIcon,
+  testID,
+}: HeaderProps) {
+  return (
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <View style={styles.header} testID={testID}>
+        <TouchableOpacity
+          onPress={onBackPress}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.dark.text} />
+        </TouchableOpacity>
+        <Text style={styles.title}>{title}</Text>
+        {hideRightIcon ? (
+          <View style={styles.iconButtonPlaceholder} />
+        ) : (
+          <TouchableOpacity
+            onPress={onRightPress}
+            style={styles.iconButton}
+            accessibilityRole="button"
+            accessibilityLabel="Action"
+          >
+            <Ionicons
+              name={rightIconName ?? 'settings'}
+              size={24}
+              color={colors.dark.text}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+    </SafeAreaView>
+  )
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: colors.dark.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  iconButton: {
+    padding: spacing.sm,
+  },
+  iconButtonPlaceholder: {
+    width: 24 + spacing.sm * 2,
+    height: 24 + spacing.sm * 2,
+  },
+  title: {
+    color: colors.dark.text,
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+  },
+})
+
+export default Header

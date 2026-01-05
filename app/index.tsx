@@ -1,5 +1,6 @@
 import { QuickStartCard } from '@/libs/components/QuickStartCard'
 import { WorkoutCard } from '@/libs/components/WorkoutCard'
+import { PrimaryButton } from '@/libs/components/PrimaryButton'
 import CustomModal from '@/libs/components/CustomModal'
 import { colors, fontSizes, spacing } from '@/libs/constants/theme'
 import { PRESETS } from '@/libs/constants/presets'
@@ -150,7 +151,7 @@ export default function HomeScreen() {
                 <View style={styles.headerLeft}>
                     <View style={styles.iconContainer}>
                         <Image
-                            source={require('@/assets/images/icon.png')}
+                            source={require('@/assets/images/hiit-icon.png')}
                             style={{ width: 80, height: 80 }}
                         />
                     </View>
@@ -172,7 +173,9 @@ export default function HomeScreen() {
             <Animated.FlatList
                 data={myWorkouts}
                 keyExtractor={(item) => item.id}
-                ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
+                ItemSeparatorComponent={() => (
+                    <View style={{ height: spacing.sm }} />
+                )}
                 renderItem={({ item }) => (
                     <Animated.View layout={Layout.springify()}>
                         <WorkoutCard
@@ -194,10 +197,10 @@ export default function HomeScreen() {
                             />
                         )}
                         <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>My Workouts</Text>
-                            <TouchableOpacity>
-                                <Text style={styles.seeAllText}>See all</Text>
-                            </TouchableOpacity>
+                            <Text style={styles.sectionTitle}>Workouts</Text>
+                            {/*<TouchableOpacity>*/}
+                            {/*    <Text style={styles.seeAllText}>See all</Text>*/}
+                            {/*</TouchableOpacity>*/}
                         </View>
                     </>
                 }
@@ -206,20 +209,13 @@ export default function HomeScreen() {
             />
 
             <View style={styles.bottomButtonContainer}>
-                <TouchableOpacity
-                    style={styles.fullWidthButton}
+                <PrimaryButton
+                    title="Create New Workout"
+                    icon="add"
                     onPress={handleCreateWorkout}
-                    onPressIn={handlePressIn}
-                >
-                    <Ionicons
-                        name="add"
-                        size={24}
-                        color="#FFFFFF"
-                        style={styles.buttonIcon}
-                    />
-                    <Text style={styles.buttonText}>Create New Workout</Text>
-                </TouchableOpacity>
+                />
             </View>
+
             <CustomModal
                 visible={modalVisible}
                 title={modalTitle}
@@ -283,22 +279,23 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingBottom: 100,
+        paddingRight: spacing.md,
     },
     readyText: {
         fontSize: fontSizes['3xl'],
         fontWeight: '700',
         color: colors.dark.text,
-        paddingHorizontal: spacing.md,
         marginTop: spacing.sm,
         marginBottom: spacing.sm,
+        paddingLeft: spacing.md,
     },
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: spacing.md,
         marginTop: spacing.sm,
         marginBottom: spacing.sm,
+        paddingLeft: spacing.md,
     },
     sectionTitle: {
         fontSize: fontSizes.xl,
@@ -315,32 +312,11 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.md,
         paddingHorizontal: spacing.md,
         backgroundColor: colors.dark.background,
         borderTopWidth: 1,
         borderTopColor: colors.dark.border,
-    },
-    fullWidthButton: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: colors.dark.primary,
-        borderRadius: 12,
-        paddingVertical: spacing.sm,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 4,
-    },
-    buttonIcon: {
-        marginRight: spacing.sm,
-    },
-    buttonText: {
-        color: '#FFFFFF',
-        fontSize: fontSizes.lg,
-        fontWeight: '600',
     },
     toastContainer: {
         position: 'absolute',

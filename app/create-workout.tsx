@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
     View,
     Text,
@@ -7,21 +7,24 @@ import {
     ScrollView,
     KeyboardAvoidingView,
     Platform,
-    Modal,
     TouchableOpacity,
-    Animated,
+    Switch,
     PanResponder,
+    Animated,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { useWorkoutStore } from '@/libs/store/workoutStore'
 import { storageService } from '@/libs/services/storage/StorageService'
 import { Button } from '@/libs/components/Button'
+import { PrimaryButton } from '@/libs/components/PrimaryButton'
 import CustomModal from '@/libs/components/CustomModal'
 import { Workout } from '@/libs/types/workout'
 import { TIMINGS } from '@/libs/constants/timings'
 import { colors, fontSizes, spacing } from '@/libs/constants/theme'
-import { formatTimeShort } from '@/libs/utils/time'
+import { formatTime, formatTimeShort } from '@/libs/utils/time'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { hapticManager } from '@/libs/services/alerts/HapticManager'
 
 export default function CreateWorkoutScreen() {
     const router = useRouter()
@@ -40,50 +43,54 @@ export default function CreateWorkoutScreen() {
     const [modalTitle, setModalTitle] = useState('')
     const [modalMessage, setModalMessage] = useState('')
     const [modalButtons, setModalButtons] = useState<any[]>([])
+    
+    // Toggle states for warm-up and cool-down
+    const [warmUpEnabled, setWarmUpEnabled] = useState(false)
+    const [coolDownEnabled, setCoolDownEnabled] = useState(false)
 
-    // Quick preset modal
-    const [presetModalVisible, setPresetModalVisible] = useState(false)
-    const presetTranslateY = React.useRef(new Animated.Value(300)).current
+    // Slider state
+    const sliderWidth = useRef(0)
+    const isDragging = useRef(false)
+    
+    // Focus state for name input
+    const [nameInputFocused, setNameInputFocused] = useState(false)
+    
+    // Slider dragging state for visual feedback
+    const [isSliderDragging, setIsSliderDragging] = useState(false)
 
-    const openPresetModal = () => {
-        setPresetModalVisible(true)
-        requestAnimationFrame(() => {
-            presetTranslateY.setValue(300)
-            Animated.timing(presetTranslateY, {
-                toValue: 0,
-                duration: 240,
-                useNativeDriver: true,
-            }).start()
-        })
-    }
+    const updateWorkDurationFromPosition = useCallback((x: number) => {
+        if (sliderWidth.current === 0) return
+        const percentage = Math.max(0, Math.min(1, x / sliderWidth.current))
+        const value = Math.round(TIMINGS.MIN_WORK_DURATION + percentage * (TIMINGS.MAX_WORK_DURATION - TIMINGS.MIN_WORK_DURATION))
+        const currentValue = parseInt(workDuration || '0', 10)
+        if (value !== currentValue) {
+            setWorkDuration(String(value))
+            if (value % 10 === 0) { // Haptic feedback every 10 seconds
+                hapticManager.trigger('light')
+            }
+        }
+    }, [workDuration])
 
-    const closePresetModal = () => {
-        Animated.timing(presetTranslateY, {
-            toValue: 300,
-            duration: 200,
-            useNativeDriver: true,
-        }).start(({ finished }) => {
-            if (finished) setPresetModalVisible(false)
-        })
-    }
-
-    const panResponder = React.useRef(
+    const panResponder = useRef(
         PanResponder.create({
-            onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4,
-            onPanResponderMove: (_, gesture) => {
-                const y = Math.max(0, gesture.dy)
-                presetTranslateY.setValue(y)
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: () => true,
+            onPanResponderGrant: (evt) => {
+                isDragging.current = true
+                setIsSliderDragging(true)
+                hapticManager.trigger('light')
+                const locationX = evt.nativeEvent.locationX
+                updateWorkDurationFromPosition(locationX)
             },
-            onPanResponderRelease: (_, gesture) => {
-                if (gesture.dy > 120 || gesture.vy > 0.8) {
-                    closePresetModal()
-                } else {
-                    Animated.timing(presetTranslateY, {
-                        toValue: 0,
-                        duration: 180,
-                        useNativeDriver: true,
-                    }).start()
+            onPanResponderMove: (evt) => {
+                if (isDragging.current) {
+                    const locationX = evt.nativeEvent.locationX
+                    updateWorkDurationFromPosition(locationX)
                 }
+            },
+            onPanResponderRelease: () => {
+                isDragging.current = false
+                setIsSliderDragging(false)
             },
         })
     ).current
@@ -101,10 +108,12 @@ export default function CreateWorkoutScreen() {
             setWorkDuration(currentWorkout.workDuration.toString())
             setRestDuration(currentWorkout.restDuration.toString())
             setRounds(currentWorkout.rounds.toString())
-            setWarmUpDuration(currentWorkout.warmUpDuration?.toString() || '')
-            setCoolDownDuration(
-                currentWorkout.coolDownDuration?.toString() || ''
-            )
+            const hasWarmUp = currentWorkout.warmUpDuration && currentWorkout.warmUpDuration > 0
+            const hasCoolDown = currentWorkout.coolDownDuration && currentWorkout.coolDownDuration > 0
+            setWarmUpDuration(hasWarmUp ? currentWorkout.warmUpDuration.toString() : '60')
+            setCoolDownDuration(hasCoolDown ? currentWorkout.coolDownDuration.toString() : '60')
+            setWarmUpEnabled(!!hasWarmUp)
+            setCoolDownEnabled(!!hasCoolDown)
         }
     }, [isEditing, currentWorkout])
 
@@ -187,23 +196,14 @@ export default function CreateWorkoutScreen() {
         const work = parseInt(workDuration || '0', 10) || 0
         const rest = parseInt(restDuration || '0', 10) || 0
         const roundsNum = parseInt(rounds || '0', 10) || 0
-        const warm = parseInt(warmUpDuration || '0', 10) || 0
-        const cool = parseInt(coolDownDuration || '0', 10) || 0
+        const warm = warmUpEnabled ? (parseInt(warmUpDuration || '0', 10) || 0) : 0
+        const cool = coolDownEnabled ? (parseInt(coolDownDuration || '0', 10) || 0) : 0
         if (roundsNum <= 0) return warm + cool
         const betweenRests = Math.max(0, roundsNum - 1)
         return warm + roundsNum * work + betweenRests * rest + cool
-    }, [workDuration, restDuration, rounds, warmUpDuration, coolDownDuration])
+    }, [workDuration, restDuration, rounds, warmUpDuration, coolDownDuration, warmUpEnabled, coolDownEnabled])
 
     const totalLabel = React.useMemo(() => formatTimeShort(totalSeconds), [totalSeconds])
-
-    const applyPreset = useCallback((p: { name: string; work: number; rest: number; rounds: number; warm?: number; cool?: number }) => {
-        setWorkDuration(String(p.work))
-        setRestDuration(String(p.rest))
-        setRounds(String(p.rounds))
-        setWarmUpDuration(p.warm ? String(p.warm) : '')
-        setCoolDownDuration(p.cool ? String(p.cool) : '')
-        if (!name.trim()) setName(p.name)
-    }, [name])
 
     const handleSave = useCallback(async () => {
         if (!validate()) return
@@ -216,10 +216,10 @@ export default function CreateWorkoutScreen() {
                 workDuration: parseInt(workDuration, 10),
                 restDuration: parseInt(restDuration, 10),
                 rounds: parseInt(rounds, 10),
-                warmUpDuration: warmUpDuration
+                warmUpDuration: warmUpEnabled && warmUpDuration
                     ? parseInt(warmUpDuration, 10)
                     : undefined,
-                coolDownDuration: coolDownDuration
+                coolDownDuration: coolDownEnabled && coolDownDuration
                     ? parseInt(coolDownDuration, 10)
                     : undefined,
             }
@@ -243,6 +243,8 @@ export default function CreateWorkoutScreen() {
         rounds,
         warmUpDuration,
         coolDownDuration,
+        warmUpEnabled,
+        coolDownEnabled,
         validate,
         router,
     ])
@@ -274,229 +276,320 @@ export default function CreateWorkoutScreen() {
     }, [id, router])
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <SafeAreaView edges={['top']}>
+        <SafeAreaView edges={['top']} style={styles.container}>
+            <KeyboardAvoidingView
+                style={styles.flex}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                {/* Custom Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.headerBack}>
-                        <Text style={styles.headerBackText}>{'< Back'}</Text>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+                        <Text style={styles.cancelText}>Cancel</Text>
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>{isEditing ? 'Edit Workout' : 'Create Workout'}</Text>
-                    <View style={styles.headerRightSpacer} />
-                </View>
-            </SafeAreaView>
-            <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.content}
-                keyboardShouldPersistTaps="handled"
-            >
-                <Text style={styles.title}>{isEditing ? 'Edit Workout' : 'Create Workout'}</Text>
-                <Text style={styles.subtitle}>Configure your intervals and optional warm-up/cool-down.</Text>
-                <Text style={styles.summaryText}>{`${parseInt(rounds||'0',10)||0} rounds • Workout ${parseInt(workDuration||'0',10)||0}s / Rest ${parseInt(restDuration||'0',10)||0}s • Warm ${parseInt(warmUpDuration||'0',10)||0}s • Cool ${parseInt(coolDownDuration||'0',10)||0}s • Total ${totalLabel}`}</Text>
-
-                {/* Quick Presets */}
-                <View style={styles.presetsCard}>
-                    <Text style={styles.sectionTitle}>Quick presets</Text>
-                    <View style={styles.presetsRow}>
-                        <Button
-                            title="Choose preset"
-                            variant="secondary"
-                            onPress={openPresetModal}
-                            style={styles.presetBtn}
-                        />
-                    </View>
+                    <View style={styles.headerButton} />
                 </View>
 
-                {/* Basics Card */}
-                <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>Basics</Text>
-                    <View style={styles.fieldGroup}>
-                        <Text style={styles.inputLabel}>Workout name</Text>
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={styles.content}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+
+                    {/* Workout Name Section */}
+                    <Text style={styles.sectionHeader}>WORKOUT NAME</Text>
+                    <View style={[
+                        styles.nameInputCard,
+                        nameInputFocused && styles.nameInputCardFocused
+                    ]}>
                         <TextInput
-                            style={styles.input}
+                            style={styles.nameInput}
                             value={name}
                             onChangeText={setName}
-                            placeholder="Enter workout name"
+                            placeholder="e.g., Tabata Tuesday"
                             placeholderTextColor={colors.dark.muted}
+                            onFocus={() => setNameInputFocused(true)}
+                            onBlur={() => setNameInputFocused(false)}
+                            maxLength={50}
                         />
+                        {name.length > 0 && (
+                            <TouchableOpacity 
+                                style={styles.clearButton}
+                                onPress={() => {
+                                    hapticManager.trigger('light')
+                                    setName('')
+                                }}
+                            >
+                                <Ionicons name="close-circle" size={20} color={colors.dark.muted} />
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity style={styles.editIconButton}>
+                            <Ionicons 
+                                name="create-outline" 
+                                size={20} 
+                                color={nameInputFocused ? colors.accent : colors.dark.muted} 
+                            />
+                        </TouchableOpacity>
                     </View>
+                    {name.length > 40 && (
+                        <Text style={styles.charCount}>{name.length}/50 characters</Text>
+                    )}
 
-                    {/* Workout */}
-                    <View style={styles.fieldGroup}>
-                        <Text style={styles.inputLabel}>Workout (sec)</Text>
-                        <View style={styles.stepperRow}>
-                            <Button
-                                title="-"
-                                variant="secondary"
+                    {/* The Loop Section */}
+                    <Text style={styles.sectionHeader}>THE LOOP</Text>
+                    
+                    {/* Work Duration with Slider */}
+                    <View style={styles.loopCard}>
+                        <View style={styles.workHeader}>
+                            <View style={styles.workLabelRow}>
+                                <Ionicons name="fitness" size={20} color={colors.accent} />
+                                <Text style={styles.workLabel}>Work</Text>
+                            </View>
+                            <View style={styles.workValueContainer}>
+                                <Text style={[styles.workValue, isSliderDragging && styles.workValueDragging]}>
+                                    {workDuration}
+                                </Text>
+                                <Text style={styles.workUnit}>s</Text>
+                            </View>
+                        </View>
+                        <View 
+                            style={styles.sliderContainer}
+                            onLayout={(e) => {
+                                sliderWidth.current = e.nativeEvent.layout.width
+                            }}
+                            {...panResponder.panHandlers}
+                        >
+                            <View style={styles.sliderTrack}>
+                                <View 
+                                    style={[
+                                        styles.sliderFill, 
+                                        { width: `${((parseInt(workDuration || '0') - TIMINGS.MIN_WORK_DURATION) / (TIMINGS.MAX_WORK_DURATION - TIMINGS.MIN_WORK_DURATION)) * 100}%` }
+                                    ]} 
+                                />
+                                <View 
+                                    style={[
+                                        styles.sliderThumb, 
+                                        isSliderDragging && styles.sliderThumbDragging,
+                                        { left: `${((parseInt(workDuration || '0') - TIMINGS.MIN_WORK_DURATION) / (TIMINGS.MAX_WORK_DURATION - TIMINGS.MIN_WORK_DURATION)) * 100}%` }
+                                    ]} 
+                                />
+                            </View>
+                            {/* Min/Max labels */}
+                            <View style={styles.sliderLabels}>
+                                <Text style={styles.sliderLabelText}>{TIMINGS.MIN_WORK_DURATION}s</Text>
+                                <Text style={styles.sliderLabelText}>{formatTimeShort(TIMINGS.MAX_WORK_DURATION)}</Text>
+                            </View>
+                        </View>
+                        {/* Stepper buttons below slider */}
+                        <View style={styles.workSteppers}>
+                            <TouchableOpacity 
+                                style={styles.workStepperButton}
                                 onPress={() => {
-                                    const v = Math.max(
-                                        TIMINGS.MIN_WORK_DURATION,
-                                        (parseInt(workDuration || '0', 10) || 0) - 5
-                                    )
+                                    hapticManager.trigger('light')
+                                    const v = Math.max(TIMINGS.MIN_WORK_DURATION, (parseInt(workDuration || '0', 10) || 0) - 5)
                                     setWorkDuration(String(v))
                                 }}
-                                style={styles.stepperBtn}
-                            />
-                            <TextInput
-                                style={[styles.input, styles.inputCenter, styles.inputGrow]}
-                                value={workDuration}
-                                onChangeText={setWorkDuration}
-                                keyboardType="numeric"
-                                placeholder="30"
-                                placeholderTextColor={colors.dark.muted}
-                            />
-                            <Button
-                                title="+"
-                                variant="secondary"
+                            >
+                                <Ionicons name="remove" size={18} color={colors.dark.text} />
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.workStepperButton}
                                 onPress={() => {
-                                    const v = Math.min(
-                                        TIMINGS.MAX_WORK_DURATION,
-                                        (parseInt(workDuration || '0', 10) || 0) + 5
-                                    )
+                                    hapticManager.trigger('light')
+                                    const v = Math.min(TIMINGS.MAX_WORK_DURATION, (parseInt(workDuration || '0', 10) || 0) + 5)
                                     setWorkDuration(String(v))
                                 }}
-                                style={styles.stepperBtn}
-                            />
+                            >
+                                <Ionicons name="add" size={18} color={colors.dark.text} />
+                            </TouchableOpacity>
                         </View>
                     </View>
 
-                    {/* Rest */}
-                    <View style={styles.fieldGroup}>
-                        <Text style={styles.inputLabel}>Rest (sec)</Text>
-                        <View style={styles.stepperRow}>
-                            <Button
-                                title="-"
-                                variant="secondary"
+                    {/* Rest Duration */}
+                    <View style={styles.compactCard}>
+                        <View style={styles.compactLeft}>
+                            <Text style={styles.compactLabel}>Rest</Text>
+                            <Text style={styles.compactSubLabel}>Recovery time</Text>
+                        </View>
+                        <View style={styles.compactStepper}>
+                            <TouchableOpacity 
+                                style={styles.compactButton}
                                 onPress={() => {
-                                    const v = Math.max(
-                                        TIMINGS.MIN_REST_DURATION,
-                                        (parseInt(restDuration || '0', 10) || 0) - 5
-                                    )
+                                    hapticManager.trigger('light')
+                                    const v = Math.max(TIMINGS.MIN_REST_DURATION, (parseInt(restDuration || '0', 10) || 0) - 5)
                                     setRestDuration(String(v))
                                 }}
-                                style={styles.stepperBtn}
-                            />
-                            <TextInput
-                                style={[styles.input, styles.inputCenter, styles.inputGrow]}
-                                value={restDuration}
-                                onChangeText={setRestDuration}
-                                keyboardType="numeric"
-                                placeholder="15"
-                                placeholderTextColor={colors.dark.muted}
-                            />
-                            <Button
-                                title="+"
-                                variant="secondary"
+                            >
+                                <Ionicons name="remove" size={20} color={colors.dark.text} />
+                            </TouchableOpacity>
+                            <Text style={styles.compactValue}>{restDuration}s</Text>
+                            <TouchableOpacity 
+                                style={styles.compactButton}
                                 onPress={() => {
-                                    const v = Math.min(
-                                        TIMINGS.MAX_REST_DURATION,
-                                        (parseInt(restDuration || '0', 10) || 0) + 5
-                                    )
+                                    hapticManager.trigger('light')
+                                    const v = Math.min(TIMINGS.MAX_REST_DURATION, (parseInt(restDuration || '0', 10) || 0) + 5)
                                     setRestDuration(String(v))
                                 }}
-                                style={styles.stepperBtn}
-                            />
+                            >
+                                <Ionicons name="add" size={20} color={colors.dark.text} />
+                            </TouchableOpacity>
                         </View>
                     </View>
 
                     {/* Rounds */}
-                    <View style={styles.fieldGroup}>
-                        <Text style={styles.inputLabel}>Rounds</Text>
-                        <View style={styles.stepperRow}>
-                            <Button
-                                title="-"
-                                variant="secondary"
+                    <View style={styles.compactCard}>
+                        <View style={styles.compactLeft}>
+                            <Text style={styles.compactLabel}>Rounds</Text>
+                            <Text style={styles.compactSubLabel}>Total sets</Text>
+                        </View>
+                        <View style={styles.compactStepper}>
+                            <TouchableOpacity 
+                                style={styles.compactButton}
                                 onPress={() => {
-                                    const v = Math.max(
-                                        TIMINGS.MIN_ROUNDS,
-                                        (parseInt(rounds || '0', 10) || 0) - 1
-                                    )
+                                    hapticManager.trigger('light')
+                                    const v = Math.max(TIMINGS.MIN_ROUNDS, (parseInt(rounds || '0', 10) || 0) - 1)
                                     setRounds(String(v))
                                 }}
-                                style={styles.stepperBtn}
-                            />
-                            <TextInput
-                                style={[styles.input, styles.inputCenter, styles.inputGrow]}
-                                value={rounds}
-                                onChangeText={setRounds}
-                                keyboardType="numeric"
-                                placeholder="5"
-                                placeholderTextColor={colors.dark.muted}
-                            />
-                            <Button
-                                title="+"
-                                variant="secondary"
+                            >
+                                <Ionicons name="remove" size={20} color={colors.dark.text} />
+                            </TouchableOpacity>
+                            <Text style={styles.compactValue}>{rounds}</Text>
+                            <TouchableOpacity 
+                                style={styles.compactButton}
                                 onPress={() => {
-                                    const v = Math.min(
-                                        TIMINGS.MAX_ROUNDS,
-                                        (parseInt(rounds || '0', 10) || 0) + 1
-                                    )
+                                    hapticManager.trigger('light')
+                                    const v = Math.min(TIMINGS.MAX_ROUNDS, (parseInt(rounds || '0', 10) || 0) + 1)
                                     setRounds(String(v))
                                 }}
-                                style={styles.stepperBtn}
-                            />
+                            >
+                                <Ionicons name="add" size={20} color={colors.dark.text} />
+                            </TouchableOpacity>
                         </View>
                     </View>
-                </View>
 
-                {/* Optional Card */}
-                <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>Optional</Text>
+                    {/* Extras Section */}
+                    <Text style={styles.sectionHeader}>EXTRAS</Text>
 
-                    {/* Warm-up */}
-                    <View style={styles.fieldGroup}>
-                        <Text style={styles.inputLabel}>Warm-up (sec)</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={warmUpDuration}
-                            onChangeText={setWarmUpDuration}
-                            keyboardType="numeric"
-                            placeholder="0"
-                            placeholderTextColor={colors.dark.muted}
+                    {/* Warm-up Toggle */}
+                    <View style={styles.extraCard}>
+                        <View style={styles.extraIconContainer}>
+                            <Ionicons name="flame" size={24} color={colors.phase.WARM_UP} />
+                        </View>
+                        <View style={styles.extraContent}>
+                            <Text style={styles.extraLabel}>Warm-up</Text>
+                            <Text style={[styles.extraStatus, warmUpEnabled && styles.extraStatusEnabled]}>
+                                {warmUpEnabled ? `${formatTimeShort(parseInt(warmUpDuration || '60'))} enabled` : 'Disabled'}
+                            </Text>
+                            {warmUpEnabled && (
+                                <View style={styles.extraSteppers}>
+                                    <TouchableOpacity 
+                                        style={styles.extraStepperButton}
+                                        onPress={() => {
+                                            hapticManager.trigger('light')
+                                            const v = Math.max(5, (parseInt(warmUpDuration || '60', 10) || 60) - 15)
+                                            setWarmUpDuration(String(v))
+                                        }}
+                                    >
+                                        <Ionicons name="remove" size={16} color={colors.dark.text} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={styles.extraStepperButton}
+                                        onPress={() => {
+                                            hapticManager.trigger('light')
+                                            const v = Math.min(TIMINGS.MAX_WARM_UP, (parseInt(warmUpDuration || '60', 10) || 60) + 15)
+                                            setWarmUpDuration(String(v))
+                                        }}
+                                    >
+                                        <Ionicons name="add" size={16} color={colors.dark.text} />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                        <Switch
+                            value={warmUpEnabled}
+                            onValueChange={(val) => {
+                                hapticManager.trigger('light')
+                                setWarmUpEnabled(val)
+                                if (val && !warmUpDuration) setWarmUpDuration('60')
+                            }}
+                            trackColor={{ false: colors.dark.border, true: colors.accent }}
+                            thumbColor={colors.dark.text}
                         />
                     </View>
 
-                    {/* Cool-down */}
-                    <View style={styles.fieldGroup}>
-                        <Text style={styles.inputLabel}>Cool-down (sec)</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={coolDownDuration}
-                            onChangeText={setCoolDownDuration}
-                            keyboardType="numeric"
-                            placeholder="0"
-                            placeholderTextColor={colors.dark.muted}
+                    {/* Cool-down Toggle */}
+                    <View style={styles.extraCard}>
+                        <View style={styles.extraIconContainer}>
+                            <Ionicons name="snow" size={24} color={colors.phase.COOL_DOWN} />
+                        </View>
+                        <View style={styles.extraContent}>
+                            <Text style={styles.extraLabel}>Cool-down</Text>
+                            <Text style={[styles.extraStatus, coolDownEnabled && styles.extraStatusEnabled]}>
+                                {coolDownEnabled ? `${formatTimeShort(parseInt(coolDownDuration || '60'))} enabled` : 'Disabled'}
+                            </Text>
+                            {coolDownEnabled && (
+                                <View style={styles.extraSteppers}>
+                                    <TouchableOpacity 
+                                        style={styles.extraStepperButton}
+                                        onPress={() => {
+                                            hapticManager.trigger('light')
+                                            const v = Math.max(5, (parseInt(coolDownDuration || '60', 10) || 60) - 15)
+                                            setCoolDownDuration(String(v))
+                                        }}
+                                    >
+                                        <Ionicons name="remove" size={16} color={colors.dark.text} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={styles.extraStepperButton}
+                                        onPress={() => {
+                                            hapticManager.trigger('light')
+                                            const v = Math.min(TIMINGS.MAX_COOL_DOWN, (parseInt(coolDownDuration || '60', 10) || 60) + 15)
+                                            setCoolDownDuration(String(v))
+                                        }}
+                                    >
+                                        <Ionicons name="add" size={16} color={colors.dark.text} />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                        <Switch
+                            value={coolDownEnabled}
+                            onValueChange={(val) => {
+                                hapticManager.trigger('light')
+                                setCoolDownEnabled(val)
+                                if (val && !coolDownDuration) setCoolDownDuration('60')
+                            }}
+                            trackColor={{ false: colors.dark.border, true: colors.accent }}
+                            thumbColor={colors.dark.text}
                         />
                     </View>
-                </View>
 
-                {/* Total duration */}
-                <View style={styles.totalBar}>
-                    <Text style={styles.totalLabel}>Estimated total</Text>
-                    <Text style={styles.totalValue}>{totalLabel}</Text>
-                </View>
+                    {/* Total Duration */}
+                    <View style={styles.totalDurationContainer}>
+                        <Text style={styles.totalDurationLabel}>Total Duration</Text>
+                        <Text style={styles.totalDurationValue}>{formatTime(totalSeconds)}</Text>
+                    </View>
 
-                {/* Actions */}
-                <View style={styles.footerActions}>
-                    <Button
+                    {/* Save Button */}
+                    <PrimaryButton
                         title={isEditing ? 'Save Changes' : 'Save Workout'}
+                        icon="save-outline"
                         onPress={handleSave}
-                        variant="primary"
                         loading={loading}
-                        style={styles.footerButton}
+                        style={styles.saveButton}
                     />
+
                     {isEditing && (
-                        <Button
-                            title="Delete"
-                            onPress={handleDelete}
+                        <PrimaryButton
+                            title="Delete Workout"
+                            icon="trash-outline"
                             variant="danger"
-                            style={styles.footerButton}
+                            onPress={handleDelete}
+                            style={styles.deleteButton}
                         />
                     )}
-                </View>
-            </ScrollView>
+                </ScrollView>
 
             <CustomModal
                 visible={modalVisible}
@@ -505,44 +598,8 @@ export default function CreateWorkoutScreen() {
                 buttons={modalButtons}
                 onRequestClose={() => setModalVisible(false)}
             />
-
-           {/* Preset selection modal */}
-           <Modal transparent visible={presetModalVisible} onRequestClose={closePresetModal}>
-               <View style={styles.presetOverlay}>
-                   <TouchableOpacity style={styles.presetOverlayFill} activeOpacity={1} onPress={closePresetModal} />
-                   <Animated.View
-                       style={[
-                           styles.presetSheet,
-                           { transform: [{ translateY: presetTranslateY }] },
-                       ]}
-                       {...panResponder.panHandlers}
-                   >
-                       <Text style={styles.presetTitle}>Choose a preset</Text>
-                       <View style={styles.presetList}>
-                           {[
-                               { label: 'Tabata 20/10 x8', p: { name: 'Tabata', work: 20, rest: 10, rounds: 8 } },
-                               { label: 'HIIT 30/15 x10', p: { name: 'HIIT 30/15', work: 30, rest: 15, rounds: 10 } },
-                               { label: 'Sprint 40/20 x6', p: { name: 'Sprint 40/20', work: 40, rest: 20, rounds: 6 } },
-                               { label: '45/15 x12', p: { name: 'Intervals 45/15', work: 45, rest: 15, rounds: 12 } },
-                               { label: '60/30 x10', p: { name: 'Intervals 60/30', work: 60, rest: 30, rounds: 10 } },
-                               { label: 'EMOM 60 x12', p: { name: 'EMOM 12 min', work: 60, rest: 0, rounds: 12 } },
-                           ].map(({ label, p }) => (
-                               <TouchableOpacity
-                                   key={label}
-                                   style={styles.presetItem}
-                                   onPress={() => {
-                                       applyPreset(p as any)
-                                       setPresetModalVisible(false)
-                                   }}
-                               >
-                                   <Text style={styles.presetItemText}>{label}</Text>
-                               </TouchableOpacity>
-                           ))}
-                       </View>
-                   </Animated.View>
-               </View>
-           </Modal>
-       </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     )
 }
 
@@ -551,225 +608,296 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.dark.background,
     },
-    scroll: {
+    flex: {
         flex: 1,
-    },
-    content: {
-        padding: spacing.md,
-        paddingBottom: spacing.lg + 16,
-        gap: spacing.md,
-    },
-    title: {
-        color: colors.dark.text,
-        fontSize: fontSizes.xl,
-        fontWeight: '700',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: spacing.md,
-        paddingTop: Platform.OS === 'ios' ? spacing.lg : spacing.md,
-        paddingBottom: spacing.sm,
-        borderBottomColor: colors.dark.border,
-        borderBottomWidth: 1,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
         backgroundColor: colors.dark.background,
     },
-    headerBack: {
-        paddingVertical: spacing.xs,
-        paddingRight: spacing.md,
-        paddingLeft: 0,
+    headerButton: {
+        minWidth: 60,
     },
-    headerBackText: {
-        color: colors.dark.primary,
+    cancelText: {
+        color: colors.dark.muted,
         fontSize: fontSizes.md,
-        fontWeight: '700',
+        fontWeight: '400',
     },
     headerTitle: {
         color: colors.dark.text,
         fontSize: fontSizes.lg,
-        fontWeight: '800',
-    },
-    headerRightSpacer: {
-        width: 60,
-    },
-    subtitle: {
-        color: colors.dark.muted,
-        fontSize: fontSizes.sm,
-        marginTop: spacing.xs,
-    },
-    summaryText: {
-        color: colors.dark.subtle,
-        fontSize: fontSizes.sm,
-        marginTop: spacing.xs,
-        lineHeight: 18,
-    },
-    presetsCard: {
-        backgroundColor: colors.dark.surface,
-        borderColor: colors.dark.border,
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: spacing.sm,
-    },
-    presetsRow: {
-        gap: spacing.xs,
-        paddingRight: spacing.sm,
-    },
-    presetBtn: {
-        minWidth: 180,
-    },
-    card: {
-        backgroundColor: colors.dark.surface,
-        borderColor: colors.dark.border,
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: spacing.sm,
-    },
-    sectionTitle: {
-        color: colors.dark.text,
-        fontSize: fontSizes.md,
         fontWeight: '700',
-        marginBottom: spacing.xs,
     },
-    fieldGroup: {
-        marginBottom: spacing.md,
-    },
-    inputLabel: {
-        color: colors.dark.subtle,
-        fontSize: fontSizes.sm,
-        marginBottom: spacing.xs,
-        fontWeight: '600',
-    },
-    row: {
-        flexDirection: 'row',
-        gap: spacing.md,
-    },
-    rowSingle: {
-        marginTop: spacing.md,
-    },
-    col: {
-        flex: 1,
-        minWidth: 0,
-    },
-    colFull: {
+    scroll: {
         flex: 1,
     },
-    label: {
-        fontSize: fontSizes.md,
-        fontWeight: '600',
-        marginTop: spacing.md,
-        marginBottom: spacing.sm,
-        color: colors.dark.text,
+    content: {
+        padding: spacing.lg,
+        paddingBottom: 40,
     },
-    input: {
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-        borderRadius: 10,
-        paddingVertical: spacing.xs,
-        paddingHorizontal: spacing.sm,
-        fontSize: fontSizes.md,
-        backgroundColor: colors.dark.surfaceAlt,
-        color: colors.dark.text,
-    },
-    inputCenter: {
-        textAlign: 'center',
-    },
-    inputGrow: {
-        flex: 1,
-        minWidth: 0,
-    },
-    footerActions: {
+    sectionHeader: {
+        color: colors.accent,
+        fontSize: fontSizes.xs,
+        fontWeight: '700',
+        letterSpacing: 1.2,
         marginTop: spacing.lg,
-        gap: spacing.sm,
+        marginBottom: spacing.sm,
     },
-    footerButton: {
-        width: '100%',
-    },
-    totalBar: {
+    nameInputCard: {
+        backgroundColor: colors.dark.surface,
+        borderRadius: 16,
+        padding: spacing.lg,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: colors.dark.surface,
-        borderColor: colors.dark.border,
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: spacing.md,
-        marginTop: spacing.md,
+        marginBottom: spacing.md,
+        borderWidth: 2,
+        borderColor: 'transparent',
+        transition: 'border-color 0.2s',
     },
-    totalLabel: {
-        color: colors.dark.muted,
-        fontSize: fontSizes.md,
-        fontWeight: '600',
+    nameInputCardFocused: {
+        borderColor: colors.accent,
     },
-    totalValue: {
+    nameInput: {
+        flex: 1,
         color: colors.dark.text,
         fontSize: fontSizes.lg,
-        fontWeight: '800',
+        fontWeight: '400',
+        outlineStyle: 'none',
     },
-    stepperRow: {
+    clearButton: {
+        padding: spacing.xs,
+        marginRight: spacing.xs,
+    },
+    editIconButton: {
+        padding: spacing.xs,
+    },
+    charCount: {
+        fontSize: fontSizes.xs,
+        color: colors.dark.muted,
+        marginTop: -spacing.sm,
+        marginBottom: spacing.sm,
+        marginLeft: spacing.sm,
+    },
+    loopCard: {
+        backgroundColor: colors.dark.surface,
+        borderRadius: 16,
+        padding: spacing.lg,
+        marginBottom: spacing.md,
+    },
+    workHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.lg,
+    },
+    workLabelRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: spacing.xs,
+        gap: spacing.sm,
     },
-    stepperBtn: {
-        minWidth: 36,
-        paddingHorizontal: 0,
-    },
-    presetOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'flex-end',
-    },
-    presetOverlayFill: {
-        flex: 1,
-    },
-    presetSheet: {
-        backgroundColor: colors.dark.surface,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-        borderColor: colors.dark.border,
-        borderWidth: 1,
-        paddingHorizontal: spacing.md,
-        paddingTop: spacing.sm,
-        paddingBottom: spacing.md,
-        maxHeight: 480,
-    },
-    presetTitle: {
+    workLabel: {
         color: colors.dark.text,
-        fontSize: fontSizes.md,
+        fontSize: fontSizes.lg,
         fontWeight: '700',
-        textAlign: 'center',
-        marginBottom: spacing.xs,
     },
-    presetList: {
-        maxHeight: 360,
+    workValueContainer: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+    },
+    workValue: {
+        color: colors.accent,
+        fontSize: 48,
+        fontWeight: '700',
+    },
+    workValueDragging: {
+        transform: [{ scale: 1.1 }],
+    },
+    workUnit: {
+        color: colors.accent,
+        fontSize: fontSizes.lg,
+        fontWeight: '400',
+        marginLeft: 4,
+    },
+    sliderContainer: {
+        paddingVertical: spacing.sm,
+    },
+    sliderTrack: {
+        height: 8,
+        backgroundColor: colors.dark.border,
+        borderRadius: 4,
+        position: 'relative',
+        overflow: 'visible',
+    },
+    sliderFill: {
+        height: '100%',
+        backgroundColor: colors.accent,
+        borderRadius: 4,
+    },
+    sliderThumb: {
+        position: 'absolute',
+        top: -6,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: colors.dark.text,
+        marginLeft: -10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    sliderThumbDragging: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        top: -8,
+        marginLeft: -12,
+        shadowOpacity: 0.5,
+        shadowRadius: 6,
+        elevation: 6,
+    },
+    sliderLabels: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         marginTop: spacing.xs,
     },
-    presetListContent: {
-        gap: spacing.xs,
-        paddingBottom: spacing.sm,
+    sliderLabelText: {
+        fontSize: fontSizes.xs,
+        color: colors.dark.muted,
+        fontWeight: '500',
     },
-    presetItem: {
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.md,
-        borderRadius: 10,
+    workSteppers: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: spacing.md,
+        marginTop: spacing.sm,
+    },
+    workStepperButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 8,
         backgroundColor: colors.dark.surfaceAlt,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    presetItemText: {
+    compactCard: {
+        backgroundColor: colors.dark.surface,
+        borderRadius: 16,
+        padding: spacing.lg,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    compactLeft: {
+        flex: 1,
+    },
+    compactLabel: {
         color: colors.dark.text,
         fontSize: fontSizes.md,
         fontWeight: '600',
+        marginBottom: 4,
     },
-    presetFooter: {
-        marginTop: spacing.sm,
-        alignItems: 'flex-end',
+    compactSubLabel: {
+        color: colors.dark.muted,
+        fontSize: fontSizes.sm,
+        fontWeight: '400',
     },
-    presetHandle: {
-        alignSelf: 'center',
+    compactStepper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    compactButton: {
         width: 40,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: colors.dark.border,
-        marginBottom: spacing.xs,
-    }
+        height: 40,
+        borderRadius: 8,
+        backgroundColor: colors.dark.surfaceAlt,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    compactValue: {
+        color: colors.accent,
+        fontSize: fontSizes.xl,
+        fontWeight: '700',
+        minWidth: 50,
+        textAlign: 'center',
+    },
+    extraCard: {
+        backgroundColor: colors.dark.surface,
+        borderRadius: 16,
+        padding: spacing.lg,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    extraIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: colors.dark.surfaceAlt,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.md,
+    },
+    extraContent: {
+        flex: 1,
+    },
+    extraLabel: {
+        color: colors.dark.text,
+        fontSize: fontSizes.md,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    extraStatus: {
+        color: colors.dark.muted,
+        fontSize: fontSizes.sm,
+        fontWeight: '400',
+    },
+    extraStatusEnabled: {
+        color: colors.accent,
+    },
+    extraSteppers: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginTop: spacing.xs,
+    },
+    extraStepperButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 6,
+        backgroundColor: colors.dark.surfaceAlt,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: colors.dark.border,
+    },
+    totalDurationContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: spacing.lg,
+        marginTop: spacing.md,
+    },
+    totalDurationLabel: {
+        color: colors.dark.muted,
+        fontSize: fontSizes.md,
+        fontWeight: '600',
+    },
+    totalDurationValue: {
+        color: colors.dark.text,
+        fontSize: fontSizes['3xl'],
+        fontWeight: '700',
+    },
+    saveButton: {
+        marginTop: spacing.md,
+    },
+    deleteButton: {
+        marginTop: spacing.sm,
+    },
 })

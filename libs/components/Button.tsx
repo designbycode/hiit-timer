@@ -20,13 +20,15 @@ import { colors } from '@/libs/constants/theme';
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 interface ButtonProps {
-  title: string;
+  title?: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'danger' | 'accent';
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  icon?: React.ReactNode;
+  iconOnly?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = React.memo(
@@ -38,6 +40,8 @@ export const Button: React.FC<ButtonProps> = React.memo(
     loading = false,
     style,
     textStyle,
+    icon,
+    iconOnly = false,
   }) => {
     const scale = useSharedValue(1);
     const { playButtonClick } = useAudio();
@@ -91,6 +95,8 @@ export const Button: React.FC<ButtonProps> = React.memo(
           <ActivityIndicator
             color={variant === 'primary' ? colors.dark.text : colors.dark.primary}
           />
+        ) : icon ? (
+          icon
         ) : (
           <Text style={buttonTextStyle}>{title}</Text>
         )}

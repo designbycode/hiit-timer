@@ -1,22 +1,26 @@
-# Hiit Timer
+# HIIT Timer – Interval Workout App
 
 A simple and effective HIIT (High-Intensity Interval Training) timer application built with React Native and Expo. This app allows you to create, manage, and run your own custom HIIT workouts.
 
 ## Features
 
-- **Create Custom Workouts:** Easily create and save your own HIIT workouts with custom work and rest intervals.
-- **Workout Timer:** A clear and easy-to-use timer that guides you through your workout.
-- **Audio Cues:** Audio cues to signal the start and end of work and rest intervals.
-- **Save Your Workouts:** Your created workouts are saved on your device for quick access.
-- **Cross-Platform:** Works on both iOS and Android.
+- Create and save custom workouts (warm-up, work, rest, rounds, cool-down)
+- Clean, dark, distraction-free UI
+- Voice cues and sound/haptic alerts on phase changes
+- Quick Start session without saving a workout
+- Background persistence: resume an in-progress workout
+- Keep-awake during active sessions (optional)
+- Android-focused (EAS build profiles configured)
 
 ## Tech Stack
 
-- **React Native:** A framework for building native apps using React.
-- **Expo:** A platform for making universal React applications.
-- **TypeScript:** A typed superset of JavaScript that compiles to plain JavaScript.
-- **Zustand:** A small, fast and scalable bearbones state-management solution.
-- **Expo Router:** A file-based router for React Native and web applications.
+- React Native 0.81, React 19
+- Expo SDK 54 (expo-router, expo-keep-awake, expo-splash-screen)
+- TypeScript
+- Zustand
+- react-native-reanimated, react-native-gesture-handler
+- expo-audio (preferred), expo-speech
+- AsyncStorage persistence
 
 ## Getting Started
 
@@ -24,9 +28,10 @@ To get a local copy up and running, follow these simple steps.
 
 ### Prerequisites
 
-- Node.js
+- Node.js (LTS)
 - bun
-- Expo CLI
+- Expo CLI and EAS CLI
+- Android Studio (emulator) or Android device
 
 ### Installation
 
@@ -43,8 +48,11 @@ To get a local copy up and running, follow these simple steps.
 
 In the project directory, you can run:
 
-- `bun start`: Runs the app in development mode.
-- `bun run android`: Runs the app on a connected Android device or emulator.
-- `bun run ios`: Runs the app on the iOS simulator.
-- `bun run web`: Runs the app in a web browser.
-- `bun run lint`: Lints the code using ESLint.
+- bun start — Start Expo dev server (Metro)
+- bun run android — Run on Android emulator/device
+- bun run web — Run in a web browser
+- bun run lint — Lint with ESLint
+- bun run eas:build:android:dev — EAS dev client build (APK)
+- bun run eas:build:android:preview — EAS internal test build (APK)
+- bun run eas:build:android:prod — EAS production build (AAB)
+- bun run eas:submit:android:prod — Submit production build to Google Play

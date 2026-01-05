@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useEffect, ReactNode } from 'react';
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer, setIsAudioActiveAsync } from 'expo-audio';
 import { useSettingsStore } from '@/libs/store/settingsStore';
 
 interface AudioContextType {
   playButtonClick: () => void;
-  playTicking: () => void;
+  playTicking: (overrideVolume?: number) => void;
   stopTicking: () => void;
   setVolume: (volume: number) => void;
 }
@@ -14,11 +14,24 @@ const AudioContext = createContext<AudioContextType | null>(null);
 export function AudioProvider({ children }: { children: ReactNode }) {
   const { soundVolume } = useSettingsStore();
   
-  // Create audio players using expo-audio hooks
-  const buttonClickPlayer = useAudioPlayer(require('@/assets/sounds/button_click.wav'));
-  const tickingPlayer = useAudioPlayer(require('@/assets/sounds/ticking.wav'));
+  // Create audio players using expo-audio hooks (per docs) - using MP3 for better compatibility
+  const buttonClickPlayer = useAudioPlayer(require('@/assets/sounds/button_click.mp3'));
+  const tickingPlayer = useAudioPlayer(require('@/assets/sounds/ticking.mp3'));
 
-  // Set initial configuration and sync volume
+  // Activate audio
+  useEffect(() => {
+    const initAudio = async () => {
+      try {
+        await setIsAudioActiveAsync(true);
+      } catch (e) {
+        console.error('❌ Failed to activate audio:', e);
+      }
+    };
+    
+    initAudio();
+  }, []);
+
+  // Configure players and sync volume
   useEffect(() => {
     if (tickingPlayer) {
       tickingPlayer.loop = true;
@@ -31,42 +44,39 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const playButtonClick = () => {
     if (buttonClickPlayer) {
-      // Reset to start if API supports seek, otherwise pause before replay
       try {
-        // @ts-ignore - seek may exist depending on expo-audio version
-        if (typeof (buttonClickPlayer as any).seek === 'function') {
-          (buttonClickPlayer as any).seek(0);
-        }
-      } catch {}
-      try {
-        if (buttonClickPlayer.playing) {
-          // Pause to allow immediate replay
-          // @ts-ignore - pause may be sync/async depending on implementation
-          buttonClickPlayer.pause?.();
-        }
-      } catch {}
-      buttonClickPlayer.play();
+        buttonClickPlayer.seekTo(0);
+        buttonClickPlayer.play();
+      } catch (e) {
+        console.error('❌ Button click failed:', e);
+      }
     }
   };
 
-  const playTicking = () => {
-    if (tickingPlayer && !tickingPlayer.playing) {
-      tickingPlayer.play();
+  const playTicking = (overrideVolume?: number) => {
+    if (tickingPlayer) {
+      try {
+        // Set volume - use override (75% for last 5 seconds) or default 10%
+        const targetVolume = overrideVolume ?? 0.10;
+        tickingPlayer.volume = targetVolume * soundVolume; // Multiply by user's volume preference
+        
+        if (!tickingPlayer.playing) {
+          tickingPlayer.play();
+        }
+      } catch (e) {
+        console.error('❌ Ticking play failed:', e);
+      }
     }
   };
 
   const stopTicking = () => {
-    if (tickingPlayer) {
+    if (tickingPlayer && tickingPlayer.playing) {
       try {
-        if (tickingPlayer.playing) {
-          tickingPlayer.pause?.();
-        }
-        // Try to reset position if supported
-        // @ts-ignore - seek may exist depending on expo-audio version
-        if (typeof (tickingPlayer as any).seek === 'function') {
-          (tickingPlayer as any).seek(0);
-        }
-      } catch {}
+        tickingPlayer.pause();
+        tickingPlayer.seekTo(0);
+      } catch (e) {
+        console.error('❌ Stop ticking failed:', e);
+      }
     }
   };
 

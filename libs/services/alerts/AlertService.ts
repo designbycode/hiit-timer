@@ -6,6 +6,7 @@ import { speechManager } from '@/libs/services/alerts/SpeechManager';
 export type AlertType = 'PHASE_CHANGE' | 'COUNTDOWN' | 'WARNING' | 'COMPLETE';
 
 interface AlertOptions {
+  mute?: boolean;
   soundEnabled?: boolean;
   vibrationEnabled?: boolean;
   voiceEnabled?: boolean;
@@ -44,13 +45,11 @@ class AlertService {
 
     await Promise.all(promises);
 
-    // Always use voice for phase announcements (not just when voiceEnabled)
-    // voiceEnabled only controls whether to speak or not
-    if (phase) {
-      if (type === 'COUNTDOWN' && countdownSeconds !== undefined && voiceEnabled) {
+    // Voice announcements (respect voiceEnabled and mute)
+    if (phase && voiceEnabled && !options.mute) {
+      if (type === 'COUNTDOWN' && countdownSeconds !== undefined) {
         speechManager.speakCountdown(countdownSeconds);
       } else {
-        // Speak phase changes even if voiceEnabled is false (primary announcement method)
         const text = this.getPhaseMessage(type, phase, round);
         if (text) {
           speechManager.speak(text);
@@ -78,8 +77,11 @@ class AlertService {
     }
     
     const phaseName = phaseNames[phase];
-    const displayRound = round !== undefined ? round + 1 : undefined;
-    return displayRound !== undefined ? `${phaseName}, Round ${displayRound}` : phaseName;
+    // Only announce round number for WORK phase
+    if (phase === Phase.WORK && round !== undefined) {
+      return `${phaseName}, Round ${round + 1}`;
+    }
+    return phaseName;
   }
 
   private getHapticPattern(type: AlertType): HapticPattern {

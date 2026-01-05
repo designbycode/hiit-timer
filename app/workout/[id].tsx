@@ -23,6 +23,7 @@ import { useBackgroundPersistence } from '@/libs/hooks/useBackgroundPersistence'
 import { useButtonSound } from '@/libs/hooks/useButtonSound'
 import { TimerDisplay } from '@/libs/components/TimerDisplay'
 import CustomModal from '@/libs/components/CustomModal'
+import Header from '@/libs/components/Header'
 import { Phase } from '@/libs/types/workout'
 import { formatTime } from '@/libs/utils/time'
 import { TIMINGS } from '@/libs/constants/timings'
@@ -45,6 +46,7 @@ export default function WorkoutScreen() {
     const { handlePressIn } = useButtonSound()
     const [showCompletionModal, setShowCompletionModal] = useState(false)
     const [completionVisible, setCompletionVisible] = useState(false)
+
     const completionTranslateY = React.useRef(new Animated.Value(300)).current
 
     const openCompletion = useCallback(() => {
@@ -75,7 +77,12 @@ export default function WorkoutScreen() {
         } else if (completionVisible) {
             closeCompletion()
         }
-    }, [showCompletionModal, openCompletion, closeCompletion, completionVisible])
+    }, [
+        showCompletionModal,
+        openCompletion,
+        closeCompletion,
+        completionVisible,
+    ])
     const [modalVisible, setModalVisible] = useState(false)
     const [modalTitle, setModalTitle] = useState('')
     const [modalMessage, setModalMessage] = useState('')
@@ -359,14 +366,17 @@ export default function WorkoutScreen() {
                     <Animated.View
                         style={[
                             styles.bottomSheet,
-                            { transform: [{ translateY: completionTranslateY }] },
+                            {
+                                transform: [
+                                    { translateY: completionTranslateY },
+                                ],
+                            },
                         ]}
                     >
                         <View style={styles.sheetHandle} />
                         <Text style={styles.modalTitle}>Workout Complete!</Text>
                         <Text style={styles.modalText}>
-                            Great job! You&apos;ve completed your workout in{' '}
-                            {formatTime(timerState.totalTime)}.
+                            Great job! You&apos;ve completed your workout.
                         </Text>
 
                         <TouchableOpacity
@@ -374,7 +384,9 @@ export default function WorkoutScreen() {
                             onPress={handleRestart}
                             onPressIn={handlePressIn}
                         >
-                            <Text style={styles.buttonText}>Restart Workout</Text>
+                            <Text style={styles.buttonText}>
+                                Restart Workout
+                            </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -382,122 +394,89 @@ export default function WorkoutScreen() {
                             onPress={handleNewTimer}
                             onPressIn={handlePressIn}
                         >
-                            <Text style={[styles.buttonText, { color: '#000' }]}>Select New Timer</Text>
+                            <Text
+                                style={[styles.buttonText, { color: '#000' }]}
+                            >
+                                Select New Timer
+                            </Text>
                         </TouchableOpacity>
                     </Animated.View>
                 </View>
             </Modal>
 
             {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={handleStop}
-                    onPressIn={handlePressIn}
-                    style={styles.backButton}
-                >
-                    <Ionicons name="arrow-back" size={24} color="#fff" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>ACTIVE WORKOUT</Text>
-                <TouchableOpacity
-                    style={styles.settingsButton}
-                    onPress={handleOpenSettings}
-                    onPressIn={handlePressIn}
-                >
-                    <Ionicons name="settings" size={24} color="#fff" />
-                </TouchableOpacity>
-            </View>
-
-            {/* Workout Label */}
-            <View
-                style={[styles.workoutLabel, { backgroundColor: phaseColor }]}
-            >
-                <Text style={styles.workoutLabelText}>{phaseLabel}</Text>
-            </View>
+            <Header
+                title="ACTIVE WORKOUT"
+                onBackPress={handleStop}
+                onRightPress={handleOpenSettings}
+                hideRightIcon
+            />
 
             <View style={styles.content}>
+                {/* Workout Label */}
+                <View
+                    style={[
+                        styles.workoutLabel,
+                        { backgroundColor: phaseColor },
+                    ]}
+                >
+                    <Text style={styles.workoutLabelText}>{phaseLabel}</Text>
+                </View>
                 <TimerDisplay
                     timerState={timerState}
                     totalRounds={totalRounds}
                     onPress={() => {
-                        if (!timerState.isRunning && timerState.phase === Phase.COUNTDOWN) {
+                        if (
+                            !timerState.isRunning &&
+                            timerState.phase === Phase.COUNTDOWN
+                        ) {
                             start()
+                        } else if (timerState.isRunning) {
+                            handlePauseResume()
                         }
                     }}
                 />
 
                 <View style={styles.controls}>
-                    <View style={styles.controlRow}>
+                    {/* Three action buttons: Reset, Skip, End */}
+                    <View style={styles.actionButtonRow}>
                         <TouchableOpacity
-                            style={[
-                                styles.controlButton,
-                                { backgroundColor: '#333' },
-                            ]}
-                            onPress={handlePauseResume}
-                            onPressIn={handlePressIn}
-                        >
-                            <Ionicons
-                                name={timerState.isPaused ? 'play' : 'pause'}
-                                size={24}
-                                color="#fff"
-                            />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[
-                                styles.controlButton,
-                                { backgroundColor: colors.dark.error },
-                            ]}
-                            onPress={handleStop}
-                            onPressIn={handlePressIn}
-                        >
-                            <Ionicons name="stop" size={24} color="#fff" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[
-                                styles.controlButton,
-                                { backgroundColor: '#FFA500' },
-                            ]}
+                            style={styles.actionButton}
                             onPress={handleRestart}
                             onPressIn={handlePressIn}
+                            accessibilityRole="button"
+                            accessibilityLabel="Reset"
                         >
-                            <Ionicons name="refresh" size={24} color="#fff" />
+                            <Ionicons name="refresh" size={32} color="#999" />
+                            <Text style={styles.actionButtonLabel}>Reset</Text>
                         </TouchableOpacity>
+
                         <TouchableOpacity
-                            style={[
-                                styles.controlButton,
-                                { backgroundColor: phaseColor },
-                            ]}
+                            style={styles.actionButton}
                             onPress={handleSkip}
                             onPressIn={handlePressIn}
+                            accessibilityRole="button"
+                            accessibilityLabel="Skip"
                         >
                             <Ionicons
-                                name="play-skip-forward"
-                                size={24}
-                                color="#fff"
+                                name="play-forward"
+                                size={32}
+                                color="#999"
                             />
+                            <Text style={styles.actionButtonLabel}>Skip</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={handleStop}
+                            onPressIn={handlePressIn}
+                            accessibilityRole="button"
+                            accessibilityLabel="End"
+                        >
+                            <Ionicons name="stop" size={32} color="#999" />
+                            <Text style={styles.actionButtonLabel}>End</Text>
                         </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity
-                        style={[styles.nextButton, { backgroundColor: '#333' }]}
-                        onPress={handleSkip}
-                        onPressIn={handlePressIn}
-                    >
-                        {(() => {
-                            const next = getNextPhaseInfo()
-                            return (
-                                <Text style={styles.nextButtonText}>
-                                    {next.label} ({formatTime(next.duration)})
-                                </Text>
-                            )
-                        })()}
-                        <View style={styles.nextButtonIcon}>
-                            <Ionicons
-                                name="arrow-forward"
-                                size={16}
-                                color="#fff"
-                            />
-                        </View>
-                    </TouchableOpacity>
                 </View>
             </View>
             <CustomModal
@@ -583,25 +562,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.dark.background,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: spacing.lg,
-        paddingTop: spacing.md,
-        paddingBottom: spacing.sm,
-    },
-    backButton: {
-        padding: spacing.sm,
-    },
-    headerTitle: {
-        color: colors.dark.text,
-        fontSize: fontSizes.md,
-        fontWeight: '600',
-    },
-    settingsButton: {
-        padding: spacing.sm,
-    },
+
     workoutLabel: {
         alignSelf: 'center',
         paddingHorizontal: spacing.md,
@@ -612,7 +573,7 @@ const styles = StyleSheet.create({
     workoutLabelText: {
         color: colors.dark.text,
         textTransform: 'uppercase',
-        fontSize: fontSizes.xs,
+        fontSize: fontSizes.sm,
         fontWeight: '600',
     },
     content: {
@@ -625,41 +586,23 @@ const styles = StyleSheet.create({
         width: '100%',
         marginTop: spacing.xl,
         alignItems: 'center',
-    },
-    controlRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: spacing.lg,
-        marginBottom: spacing.md,
-    },
-    controlButton: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    nextButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: spacing.md,
         paddingHorizontal: spacing.lg,
-        borderRadius: 30,
-        minWidth: 200,
-        justifyContent: 'space-between',
     },
-    nextButtonText: {
-        color: colors.dark.text,
-        fontSize: fontSizes.md,
-        fontWeight: '600',
-    },
-    nextButtonIcon: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center',
+    actionButtonRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
         alignItems: 'center',
-        marginLeft: spacing.sm,
+        width: '100%',
+    },
+    actionButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 80,
+    },
+    actionButtonLabel: {
+        marginTop: spacing.sm,
+        color: '#999',
+        fontSize: fontSizes.sm,
+        fontWeight: '600',
     },
 })

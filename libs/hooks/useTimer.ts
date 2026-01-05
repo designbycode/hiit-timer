@@ -13,6 +13,7 @@ export function useTimer(workoutId: string | null) {
   const workoutRef = useRef(useWorkoutStore.getState().currentWorkout);
   const lastPhaseRef = useRef<Phase | null>(null);
   const lastRoundRef = useRef<number>(0);
+  const lastCountdownSecondRef = useRef<number>(0);
 
   const { currentWorkout, updateTimerState, setWorkout } = useWorkoutStore();
   const { soundEnabled, vibrationEnabled, voiceEnabled } = useSettingsStore();
@@ -37,17 +38,43 @@ export function useTimer(workoutId: string | null) {
       engineRef.current = new TimerEngine({
         onUpdate: (state) => {
           updateTimerState(state);
+          
+          // Voice countdown announcements during COUNTDOWN phase
+          if (state.phase === Phase.COUNTDOWN && voiceEnabled) {
+            const secondsLeft = Math.ceil(state.timeRemaining);
+            // Announce "Start in 3" at the beginning
+            if (secondsLeft === 3 && lastCountdownSecondRef.current !== 3) {
+              speechManager.speak('Start in 3');
+              lastCountdownSecondRef.current = 3;
+            }
+            // Then announce "2" and "1"
+            else if ((secondsLeft === 2 || secondsLeft === 1) && secondsLeft !== lastCountdownSecondRef.current) {
+              speechManager.speak(secondsLeft.toString());
+              lastCountdownSecondRef.current = secondsLeft;
+            }
+          }
+          
+          // Play ticking sound only in the last 5 seconds of any phase
+          // Use louder volume (75%) for urgency in final seconds
+          if (soundEnabled && state.timeRemaining <= 5 && state.timeRemaining > 0) {
+            playTicking(0.75);
+          } else {
+            stopTicking();
+          }
         },
         onPhaseChange: async (phase, round) => {
           if (phase !== lastPhaseRef.current || round !== lastRoundRef.current) {
-            // Handle ticking sound for work/rest phases
-            if (phase === Phase.WORK || phase === Phase.REST) {
-              playTicking();
-            } else {
-              stopTicking();
-            }
+            // Stop ticking when phase changes (it will restart in last 5 seconds via onUpdate)
+            stopTicking();
             
             try {
+              // Special announcement when transitioning from COUNTDOWN
+              if (lastPhaseRef.current === Phase.COUNTDOWN && phase !== Phase.COUNTDOWN) {
+                if (voiceEnabled) {
+                  speechManager.speak('Start workout');
+                }
+              }
+              
               await alertService.triggerAlert('PHASE_CHANGE', {
                 soundEnabled,
                 vibrationEnabled,
@@ -81,6 +108,7 @@ export function useTimer(workoutId: string | null) {
     engineRef.current.setWorkout(currentWorkout);
     lastPhaseRef.current = null;
     lastRoundRef.current = 0;
+    lastCountdownSecondRef.current = 0;
 
     return () => {
       if (engineRef.current) {
@@ -101,7 +129,10 @@ export function useTimer(workoutId: string | null) {
   const pause = useCallback(() => {
     engineRef.current?.pause();
     useWorkoutStore.getState().pause();
-  }, []);
+    // Ensure audio and speech pause immediately when the timer is paused
+    stopTicking();
+    speechManager.stop();
+  }, [stopTicking]);
 
   const resume = useCallback(() => {
     engineRef.current?.resume();

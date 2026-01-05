@@ -16,7 +16,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   soundEnabled: true,
   vibrationEnabled: true,
-  voiceEnabled: false,
+  voiceEnabled: true,
   soundVolume: 1.0,
 
   toggleSound: () => {
@@ -61,7 +61,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({
       soundEnabled: settings.soundEnabled ?? true,
       vibrationEnabled: settings.vibrationEnabled ?? true,
-      voiceEnabled: settings.voiceEnabled ?? false,
+      voiceEnabled: settings.voiceEnabled ?? true,
       soundVolume: settings.soundVolume ?? 1.0,
     });
   },

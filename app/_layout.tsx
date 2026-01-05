@@ -8,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useSettingsStore } from '@/libs/store/settingsStore';
 import { CustomSplashScreen } from '@/libs/components/SplashScreen';
 import { AudioProvider } from '@/libs/contexts/AudioContext';
+import { colors } from '@/libs/constants/theme';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -38,22 +39,25 @@ export default function RootLayout() {
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.dark.background }}>
       <SafeAreaProvider>
         <AudioProvider>
-          <StatusBar style="auto" />
+          <StatusBar style="light" translucent backgroundColor="transparent" />
           {isSplashVisible && (
-            <View style={styles.splashContainer}>
+            <View style={[styles.fullscreenBg, styles.splashContainer]}>
               <CustomSplashScreen onFinish={handleSplashFinish} />
             </View>
           )}
           {!isSplashVisible && (
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: 'slide_from_right',
-              }}
-            />
+            <View style={styles.fullscreenBg}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                  contentStyle: { backgroundColor: colors.dark.background },
+                }}
+              />
+            </View>
           )}
         </AudioProvider>
       </SafeAreaProvider>
@@ -70,4 +74,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 9999,
   },
+  fullscreenBg: {
+    flex: 1,
+    backgroundColor: colors.dark.background,
+  }
 });
