@@ -1,5 +1,11 @@
 import React from 'react'
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, ActivityIndicator } from 'react-native'
+import {
+    TouchableOpacity,
+    Text,
+    StyleSheet,
+    ViewStyle,
+    ActivityIndicator,
+} from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { colors, fontSizes, spacing } from '@/libs/constants/theme'
 import { hapticManager } from '@/libs/services/alerts/HapticManager'
@@ -39,10 +45,11 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
         style,
     ]
 
-    const textColor = variant === 'secondary' ? colors.dark.primary : colors.dark.background
+    const textColor =
+        variant === 'secondary' ? colors.dark.primary : colors.dark.background
 
     return (
-        <TouchableOpacity 
+        <TouchableOpacity
             style={buttonStyle}
             onPress={handlePress}
             disabled={disabled || loading}
@@ -52,7 +59,14 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
                 <ActivityIndicator color={textColor} />
             ) : (
                 <>
-                    {icon && <Ionicons name={icon} size={20} color={textColor} style={styles.icon} />}
+                    {icon && (
+                        <Ionicons
+                            name={icon}
+                            size={20}
+                            color={textColor}
+                            style={styles.icon}
+                        />
+                    )}
                     <Text style={[styles.buttonText, { color: textColor }]}>
                         {title}
                     </Text>
@@ -65,7 +79,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
 const styles = StyleSheet.create({
     button: {
         borderRadius: 16,
-        paddingVertical: spacing.lg,
+        paddingVertical: spacing.md,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',

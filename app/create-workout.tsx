@@ -110,8 +110,8 @@ export default function CreateWorkoutScreen() {
             setRounds(currentWorkout.rounds.toString())
             const hasWarmUp = currentWorkout.warmUpDuration && currentWorkout.warmUpDuration > 0
             const hasCoolDown = currentWorkout.coolDownDuration && currentWorkout.coolDownDuration > 0
-            setWarmUpDuration(hasWarmUp ? currentWorkout.warmUpDuration.toString() : '60')
-            setCoolDownDuration(hasCoolDown ? currentWorkout.coolDownDuration.toString() : '60')
+            setWarmUpDuration(hasWarmUp ? currentWorkout.warmUpDuration!.toString() : '60')
+            setCoolDownDuration(hasCoolDown ? currentWorkout.coolDownDuration!.toString() : '60')
             setWarmUpEnabled(!!hasWarmUp)
             setCoolDownEnabled(!!hasCoolDown)
         }
@@ -656,7 +656,6 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
         borderWidth: 2,
         borderColor: 'transparent',
-        transition: 'border-color 0.2s',
     },
     nameInputCardFocused: {
         borderColor: colors.accent,
@@ -666,7 +665,6 @@ const styles = StyleSheet.create({
         color: colors.dark.text,
         fontSize: fontSizes.lg,
         fontWeight: '400',
-        outlineStyle: 'none',
     },
     clearButton: {
         padding: spacing.xs,
