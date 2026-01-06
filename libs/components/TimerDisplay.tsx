@@ -55,7 +55,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(
     );
 
     const showStart = useMemo(
-      () => !!onPress && !timerState.isRunning && timerState.phase === Phase.COUNTDOWN,
+      () => !!onPress && (!timerState.isRunning && timerState.phase === Phase.COUNTDOWN || timerState.phase === Phase.COMPLETE),
       [onPress, timerState.isRunning, timerState.phase]
     );
 
@@ -124,7 +124,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(
                 </Animated.Text>
                 {!showStart && !showResume && totalRounds > 0 && (
                   <Text style={styles.roundText}>
-                    Round {timerState.currentRound + 1} of {totalRounds}
+                    Round {Math.min(timerState.currentRound + 1, totalRounds)} of {totalRounds}
                   </Text>
                 )}
               </Animated.View>

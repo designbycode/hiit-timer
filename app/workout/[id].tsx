@@ -457,7 +457,10 @@ export default function WorkoutScreen() {
                     timerState={timerState}
                     totalRounds={totalRounds}
                     onPress={() => {
-                        if (
+                        if (timerState.phase === Phase.COMPLETE) {
+                            // Restart when workout is complete
+                            restart()
+                        } else if (
                             !timerState.isRunning &&
                             timerState.phase === Phase.COUNTDOWN
                         ) {
