@@ -512,7 +512,7 @@ export default function WorkoutScreen() {
             </View>
 
             {/* Ad Banner at bottom - Temporarily disabled, requires native rebuild */}
-            {/* <AdBanner style={styles.adBanner} /> */}
+            <AdBanner style={styles.adBanner} />
 
             <CustomModal
                 visible={modalVisible}
