@@ -6,6 +6,7 @@ interface AudioContextType {
   playButtonClick: () => void;
   playTicking: (overrideVolume?: number) => void;
   stopTicking: () => void;
+  playTone: () => void;
   setVolume: (volume: number) => void;
 }
 
@@ -17,6 +18,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // Create audio players using expo-audio hooks (per docs) - using MP3 for better compatibility
   const buttonClickPlayer = useAudioPlayer(require('@/assets/sounds/button_click.mp3'));
   const tickingPlayer = useAudioPlayer(require('@/assets/sounds/ticking.mp3'));
+  const tonePlayer = useAudioPlayer(require('@/assets/sounds/tone.mp3'));
 
   // Activate audio
   useEffect(() => {
@@ -40,7 +42,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (buttonClickPlayer) {
       buttonClickPlayer.volume = soundVolume;
     }
-  }, [tickingPlayer, buttonClickPlayer, soundVolume]);
+    if (tonePlayer) {
+      tonePlayer.volume = soundVolume;
+    }
+  }, [tickingPlayer, buttonClickPlayer, tonePlayer, soundVolume]);
 
   const playButtonClick = () => {
     if (buttonClickPlayer) {
@@ -80,14 +85,26 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const playTone = () => {
+    if (tonePlayer) {
+      try {
+        tonePlayer.seekTo(0);
+        tonePlayer.play();
+      } catch (e) {
+        console.error('❌ Tone play failed:', e);
+      }
+    }
+  };
+
   const setVolume = (volume: number) => {
     const v = Math.max(0, Math.min(1, volume));
     if (buttonClickPlayer) buttonClickPlayer.volume = v;
     if (tickingPlayer) tickingPlayer.volume = v;
+    if (tonePlayer) tonePlayer.volume = v;
   };
 
   return (
-    <AudioContext.Provider value={{ playButtonClick, playTicking, stopTicking, setVolume }}>
+    <AudioContext.Provider value={{ playButtonClick, playTicking, stopTicking, playTone, setVolume }}>
       {children}
     </AudioContext.Provider>
   );

@@ -17,7 +17,7 @@ export function useTimer(workoutId: string | null) {
 
   const { currentWorkout, updateTimerState, setWorkout } = useWorkoutStore();
   const { soundEnabled, vibrationEnabled, voiceEnabled } = useSettingsStore();
-  const { playTicking, stopTicking } = useAudio();
+  const { playTicking, stopTicking, playTone } = useAudio();
 
   useEffect(() => {
     workoutRef.current = currentWorkout;
@@ -68,6 +68,11 @@ export function useTimer(workoutId: string | null) {
             stopTicking();
             
             try {
+              // Play tone at the end of each phase (when phase changes, except from COUNTDOWN)
+              if (lastPhaseRef.current !== null && lastPhaseRef.current !== Phase.COUNTDOWN && soundEnabled) {
+                playTone();
+              }
+              
               // Special announcement when transitioning from COUNTDOWN
               if (lastPhaseRef.current === Phase.COUNTDOWN && phase !== Phase.COUNTDOWN) {
                 if (voiceEnabled) {
@@ -91,6 +96,11 @@ export function useTimer(workoutId: string | null) {
         },
         onComplete: async () => {
           try {
+            // Play tone when timer reaches zero
+            if (soundEnabled) {
+              playTone();
+            }
+            
             await alertService.triggerAlert('COMPLETE', {
               soundEnabled,
               vibrationEnabled,
@@ -119,7 +129,7 @@ export function useTimer(workoutId: string | null) {
       speechManager.stop();
       stopTicking();
     };
-  }, [workoutId, currentWorkout, updateTimerState, soundEnabled, vibrationEnabled, voiceEnabled, playTicking, stopTicking]);
+  }, [workoutId, currentWorkout, updateTimerState, soundEnabled, vibrationEnabled, voiceEnabled, playTicking, stopTicking, playTone]);
 
   const start = useCallback(() => {
     engineRef.current?.start();
