@@ -1,5 +1,20 @@
 # ⚠️ CRITICAL RULES - READ FIRST
 
+## 🚫 DO NOT RUN DEV SERVER COMMANDS
+
+**NEVER run these commands:**
+- `bun start`
+- `bun start -c`
+- `npx expo start`
+- Any Metro bundler / dev server commands
+
+**Reason:** User runs dev server manually in a separate tab.
+
+**What to do instead:**
+- Make code changes only
+- Tell user to reload the app (press 'r' in their Metro terminal)
+- Let user manage their own dev server
+
 
 
 

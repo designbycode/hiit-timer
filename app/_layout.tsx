@@ -22,12 +22,16 @@ export default function RootLayout() {
   useEffect(() => {
     const loadAppData = async () => {
       try {
+        console.log('Loading settings...');
         await loadSettings();
+        console.log('Settings loaded');
       } catch (error) {
         console.error('Failed to load settings:', error);
       } finally {
         // Hide native splash, keep custom splash overlay visible until it finishes its own timer
+        console.log('Hiding native splash');
         await SplashScreen.hideAsync();
+        console.log('Native splash hidden');
       }
     };
     
@@ -35,6 +39,7 @@ export default function RootLayout() {
   }, [loadSettings]);
 
   const handleSplashFinish = () => {
+    console.log('Splash finish called');
     setIsSplashVisible(false);
   };
 
@@ -56,7 +61,12 @@ export default function RootLayout() {
                   animation: 'slide_from_right',
                   contentStyle: { backgroundColor: colors.dark.background },
                 }}
-              />
+              >
+                <Stack.Screen name="index" />
+                <Stack.Screen name="create-workout" />
+                <Stack.Screen name="settings" />
+                <Stack.Screen name="workout/[id]" />
+              </Stack>
             </View>
           )}
         </AudioProvider>

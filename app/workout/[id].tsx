@@ -24,11 +24,12 @@ import { useBackgroundPersistence } from '@/libs/hooks/useBackgroundPersistence'
 import { useButtonSound } from '@/libs/hooks/useButtonSound'
 import { TimerDisplay } from '@/libs/components/TimerDisplay'
 import CustomModal from '@/libs/components/CustomModal'
-import Header from '@/libs/components/Header'
+import { Header } from '@/libs/components/Header'
 import { Phase } from '@/libs/types/workout'
-import { formatTime } from '@/libs/utils/time'
+
 import { TIMINGS } from '@/libs/constants/timings'
 import { colors, fontSizes, spacing } from '@/libs/constants/theme'
+import { AdBanner } from '@/libs/components/AdBanner'
 
 export default function WorkoutScreen() {
     const router = useRouter()
@@ -102,8 +103,11 @@ export default function WorkoutScreen() {
             }
         }
 
-        const subscription = AppState.addEventListener('change', handleAppStateChange)
-        
+        const subscription = AppState.addEventListener(
+            'change',
+            handleAppStateChange
+        )
+
         return () => subscription?.remove()
     }, [isActive, pause, wasPausedByUser])
     const [modalVisible, setModalVisible] = useState(false)
@@ -301,7 +305,6 @@ export default function WorkoutScreen() {
             setShowCompletionModal(true)
         }
     }, [timerState.phase])
-
 
     const getNextPhaseInfo = useCallback(() => {
         const workout = currentWorkout
@@ -507,6 +510,10 @@ export default function WorkoutScreen() {
                     </View>
                 </View>
             </View>
+
+            {/* Ad Banner at bottom - Temporarily disabled, requires native rebuild */}
+            {/* <AdBanner style={styles.adBanner} /> */}
+
             <CustomModal
                 visible={modalVisible}
                 title={modalTitle}
@@ -632,5 +639,11 @@ const styles = StyleSheet.create({
         color: '#999',
         fontSize: fontSizes.sm,
         fontWeight: '600',
+    },
+    adBanner: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
     },
 })

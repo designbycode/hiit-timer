@@ -1,0 +1,14 @@
+// Add this to app.json plugins array for AdMob configuration
+{
+  "expo": {
+    "plugins": [
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-YOUR_ANDROID_APP_ID~YOUR_ANDROID_APP_ID",
+          "iosAppId": "ca-app-pub-YOUR_IOS_APP_ID~YOUR_IOS_APP_ID"
+        }
+      ]
+    ]
+  }
+}

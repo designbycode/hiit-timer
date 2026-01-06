@@ -56,7 +56,14 @@
                     "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
                 }
             ],
-            "expo-asset"
+            "expo-asset",
+            [
+                "react-native-google-mobile-ads",
+                {
+                    "androidAppId": "ca-app-pub-8049621865774957~9160760366",
+                    "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+                }
+            ]
         ],
         "experiments": {
             "typedRoutes": true,
