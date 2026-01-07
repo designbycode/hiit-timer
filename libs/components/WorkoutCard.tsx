@@ -75,30 +75,37 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(
                         {...(!workout.isPreset
                             ? {
                                   friction: 2,
-                                  rightThreshold: 60,
+                                  rightThreshold: 40,
                                   overshootRight: false,
                                   renderRightActions: () => (
-                                      <TouchableOpacity
-                                          style={styles.rightAction}
-                                          onPress={handleDelete}
-                                          activeOpacity={0.85}
+                                      <View
+                                          style={styles.rightActionsContainer}
                                       >
-                                          <Ionicons
-                                              name="trash-outline"
-                                              size={20}
-                                              color={colors.dark.error}
-                                          />
-                                          <Text style={styles.deleteLabel}>
-                                              Delete
-                                          </Text>
-                                      </TouchableOpacity>
+                                          <TouchableOpacity
+                                              style={styles.deleteButton}
+                                              onPress={handleDelete}
+                                              activeOpacity={0.85}
+                                          >
+                                              <Ionicons
+                                                  name="trash"
+                                                  size={24}
+                                                  color="#fff"
+                                              />
+                                              <Text
+                                                  style={
+                                                      styles.deleteButtonText
+                                                  }
+                                              >
+                                                  Delete
+                                              </Text>
+                                          </TouchableOpacity>
+                                      </View>
                                   ),
                                   onSwipeableOpen: async (
                                       direction: 'left' | 'right'
                                   ) => {
                                       if (direction === 'right') {
                                           await handleFeedback()
-                                          handleDelete()
                                       }
                                   },
                               }
@@ -220,7 +227,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingVertical: 10,
         paddingHorizontal: 12,
-        marginHorizontal: spacing.sm / 2,
+        marginHorizontal: spacing.sm,
         marginVertical: 1,
         flexDirection: 'row',
         alignItems: 'center',
@@ -328,23 +335,29 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     swipeBackground: {
-        width: '100%',
-        marginHorizontal: 12,
-        marginVertical: 6,
         position: 'relative',
     },
-    rightAction: {
-        width: 100,
+    rightActionsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        paddingRight: spacing.sm,
+    },
+    deleteButton: {
+        backgroundColor: colors.dark.error + 90,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: colors.dark.error + '20',
-        flexDirection: 'row',
-        gap: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        minWidth: 80,
+        height: '96%',
     },
-    deleteLabel: {
-        color: colors.dark.error,
+    deleteButtonText: {
+        color: '#fff',
         fontSize: 12,
-        fontWeight: '600',
+        fontWeight: '700',
+        marginTop: 4,
     },
     presetCard: {
         opacity: 0.95,

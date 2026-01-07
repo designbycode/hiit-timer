@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native'
-import Animated, { Layout } from 'react-native-reanimated'
+import Animated, { LinearTransition, FadeInDown, FadeOutUp } from 'react-native-reanimated'
 
 export default function HomeScreen() {
     const router = useRouter()
@@ -34,9 +34,22 @@ export default function HomeScreen() {
     > | null>(null)
     const [showUndo, setShowUndo] = useState(false)
 
+    // Filter state: true = show all, false = show only user workouts
+    const [showAllWorkouts, setShowAllWorkouts] = useState(true)
+
     useEffect(() => {
         loadWorkouts()
+        loadFilterPreference()
     }, [])
+
+    const loadFilterPreference = async () => {
+        try {
+            const filterState = await storageService.getWorkoutFilter()
+            setShowAllWorkouts(filterState)
+        } catch (error) {
+            console.error('Error loading filter preference:', error)
+        }
+    }
 
     const setDefaultWorkout = useCallback(() => {
         setLastUsedWorkout(workouts.length > 0 ? workouts[0] : PRESETS[0])
@@ -83,8 +96,19 @@ export default function HomeScreen() {
     )
 
     const myWorkouts = useMemo(() => {
-        return [...PRESETS, ...workouts]
-    }, [workouts])
+        const allWorkouts = [...PRESETS, ...workouts]
+        if (showAllWorkouts) {
+            return allWorkouts
+        }
+        // Show only user-created workouts (not presets)
+        return workouts
+    }, [workouts, showAllWorkouts])
+
+    const toggleWorkoutFilter = useCallback(async () => {
+        const newState = !showAllWorkouts
+        setShowAllWorkouts(newState)
+        await storageService.setWorkoutFilter(newState)
+    }, [showAllWorkouts])
 
     const handleWorkoutPress = useCallback(
         async (workout: Workout) => {
@@ -176,8 +200,13 @@ export default function HomeScreen() {
                 ItemSeparatorComponent={() => (
                     <View style={{ height: spacing.sm }} />
                 )}
-                renderItem={({ item }) => (
-                    <Animated.View layout={Layout.springify()}>
+                renderItem={({ item, index }) => (
+                    <Animated.View 
+                        key={item.id}
+                        layout={LinearTransition.springify()}
+                        entering={FadeInDown.delay(index * 50).duration(300)}
+                        exiting={FadeOutUp.duration(200)}
+                    >
                         <WorkoutCard
                             workout={item}
                             onPress={() => handleWorkoutPress(item)}
@@ -198,9 +227,15 @@ export default function HomeScreen() {
                         )}
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Workouts</Text>
-                            {/*<TouchableOpacity>*/}
-                            {/*    <Text style={styles.seeAllText}>See all</Text>*/}
-                            {/*</TouchableOpacity>*/}
+                            <TouchableOpacity 
+                                onPress={toggleWorkoutFilter}
+                                onPressIn={handlePressIn}
+                                style={styles.filterButton}
+                            >
+                                <Text style={styles.seeAllText}>
+                                    {showAllWorkouts ? 'My Workouts' : 'See All'}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     </>
                 }
@@ -249,7 +284,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: spacing.md,
+        paddingHorizontal: spacing.sm,
         paddingTop: 60,
         paddingBottom: spacing.lg,
         backgroundColor: colors.dark.background,
@@ -279,7 +314,6 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingBottom: 100,
-        paddingRight: spacing.md,
     },
     readyText: {
         fontSize: fontSizes['3xl'],
@@ -287,7 +321,7 @@ const styles = StyleSheet.create({
         color: colors.dark.text,
         marginTop: spacing.sm,
         marginBottom: spacing.sm,
-        paddingLeft: spacing.md,
+        paddingHorizontal: spacing.sm,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -295,12 +329,16 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: spacing.sm,
         marginBottom: spacing.sm,
-        paddingLeft: spacing.md,
+        paddingHorizontal: spacing.sm,
     },
     sectionTitle: {
         fontSize: fontSizes.xl,
         fontWeight: '600',
         color: colors.dark.text,
+    },
+    filterButton: {
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
     },
     seeAllText: {
         fontSize: fontSizes.md,
@@ -313,15 +351,15 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         paddingVertical: spacing.md,
-        paddingHorizontal: spacing.md,
+        paddingHorizontal: spacing.sm,
         backgroundColor: colors.dark.background,
         borderTopWidth: 1,
         borderTopColor: colors.dark.border,
     },
     toastContainer: {
         position: 'absolute',
-        left: spacing.md,
-        right: spacing.md,
+        left: spacing.sm,
+        right: spacing.sm,
         bottom: 70,
     },
     toast: {

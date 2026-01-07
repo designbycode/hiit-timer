@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   LAST_WORKOUT: '@hiit_timer:last_workout',
   TIMER_STATE: '@hiit_timer:timer_state',
   ONBOARDING: '@hiit_timer:onboarding_completed',
+  WORKOUT_FILTER: '@hiit_timer:workout_filter',
 } as const;
 
 class StorageService {
@@ -164,6 +165,25 @@ class StorageService {
       await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING, 'true');
     } catch (error) {
       console.error('Error setting onboarding completed:', error);
+    }
+  }
+
+  // Workout filter preference
+  async getWorkoutFilter(): Promise<boolean> {
+    try {
+      const value = await AsyncStorage.getItem(STORAGE_KEYS.WORKOUT_FILTER);
+      return value === 'false' ? false : true; // Default to true (show all)
+    } catch (error) {
+      console.error('Error getting workout filter:', error);
+      return true;
+    }
+  }
+
+  async setWorkoutFilter(showAll: boolean): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.WORKOUT_FILTER, showAll.toString());
+    } catch (error) {
+      console.error('Error setting workout filter:', error);
     }
   }
 }

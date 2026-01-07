@@ -447,6 +447,7 @@ export default function WorkoutScreen() {
                 onBackPress={handleStop}
                 onRightPress={handleEditWorkout}
                 rightIconName="create-outline"
+                hideRightIcon={currentWorkout.isPreset}
             />
 
             {/* Workout Name */}
