@@ -9,6 +9,7 @@ import {
     Modal,
     Animated,
     AppState,
+    Dimensions,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams } from 'expo-router'
@@ -272,6 +273,34 @@ export default function WorkoutScreen() {
         )
     }, [router, stopTimer, timerState.startTime])
 
+    const handleEditWorkout = useCallback(() => {
+        const hasStarted = !!timerState.startTime
+        if (!hasStarted) {
+            router.push(`/create-workout?id=${id}`)
+            return
+        }
+        showAlert(
+            'Workout in Progress',
+            'Are you sure you want to leave? Your progress will be lost.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                    onPress: () => setModalVisible(false),
+                },
+                {
+                    text: 'Leave',
+                    style: 'destructive',
+                    onPress: () => {
+                        setModalVisible(false)
+                        stopTimer()
+                        router.push(`/create-workout?id=${id}`)
+                    },
+                },
+            ]
+        )
+    }, [router, stopTimer, timerState.startTime, id])
+
     const totalRounds = useMemo(() => {
         return currentWorkout?.rounds || 0
     }, [currentWorkout])
@@ -439,9 +468,11 @@ export default function WorkoutScreen() {
             <Header
                 title="ACTIVE WORKOUT"
                 onBackPress={handleStop}
-                onRightPress={handleOpenSettings}
-                hideRightIcon
+                onRightPress={handleEditWorkout}
+                rightIconName="create-outline"
             />
+
+            {/* Workout Name */}
 
             <View style={styles.content}>
                 {/* Workout Label */}
@@ -456,6 +487,7 @@ export default function WorkoutScreen() {
                 <TimerDisplay
                     timerState={timerState}
                     totalRounds={totalRounds}
+                    workoutName={currentWorkout.name}
                     onPress={() => {
                         if (timerState.phase === Phase.COMPLETE) {
                             // Restart when workout is complete
@@ -470,7 +502,6 @@ export default function WorkoutScreen() {
                         }
                     }}
                 />
-
                 <View style={styles.controls}>
                     {/* Three action buttons: Reset, Skip, End */}
                     <View style={styles.actionButtonRow}>
@@ -618,11 +649,12 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: spacing.lg,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 60,
     },
     controls: {
         width: '100%',
-        marginTop: spacing.xl,
+        marginVertical: spacing.xl,
         alignItems: 'center',
         paddingHorizontal: spacing.lg,
     },

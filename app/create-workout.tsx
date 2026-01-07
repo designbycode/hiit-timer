@@ -56,6 +56,13 @@ export default function CreateWorkoutScreen() {
     // Focus state for name input
     const [nameInputFocused, setNameInputFocused] = useState(false)
 
+    // Name validation error state
+    const [nameError, setNameError] = useState(false)
+    const [nameErrorMessage, setNameErrorMessage] = useState('')
+
+    // Debounce timer for validation
+    const validationTimerRef = useRef<number | null>(null)
+
     // Slider dragging state for visual feedback
     const [isSliderDragging, setIsSliderDragging] = useState(false)
 
@@ -132,15 +139,82 @@ export default function CreateWorkoutScreen() {
             setWarmUpEnabled(!!hasWarmUp)
             setCoolDownEnabled(!!hasCoolDown)
         }
+
+        // Cleanup validation timer on unmount
+        return () => {
+            if (validationTimerRef.current) {
+                clearTimeout(validationTimerRef.current)
+            }
+        }
     }, [isEditing, currentWorkout])
 
-    const validate = useCallback((): boolean => {
+    // Real-time validation while typing (debounced)
+    const validateNameDebounced = useCallback(
+        (workoutName: string) => {
+            // Clear existing timer
+            if (validationTimerRef.current) {
+                clearTimeout(validationTimerRef.current)
+            }
+
+            // Clear error immediately if name is empty
+            if (!workoutName.trim()) {
+                setNameError(false)
+                setNameErrorMessage('')
+                return
+            }
+
+            // Debounce the validation check
+            validationTimerRef.current = setTimeout(async () => {
+                // Check for duplicate workout names
+                const existingWorkouts = await storageService.loadWorkouts()
+                const duplicateWorkout = existingWorkouts.find(
+                    (w) =>
+                        w.name.toLowerCase() ===
+                            workoutName.trim().toLowerCase() && w.id !== id
+                )
+                if (duplicateWorkout) {
+                    setNameError(true)
+                    setNameErrorMessage('This workout name already exists')
+                    return
+                }
+
+                // Clear error if validation passes
+                setNameError(false)
+                setNameErrorMessage('')
+            }, 500) // Wait 500ms after user stops typing
+        },
+        [id]
+    )
+
+    const validate = useCallback(async (): Promise<boolean> => {
         if (!name.trim()) {
+            setNameError(true)
+            setNameErrorMessage('Please enter a workout name')
             showAlert('Error', 'Please enter a workout name', [
                 { text: 'OK', onPress: () => setModalVisible(false) },
             ])
             return false
         }
+
+        // Check for duplicate workout names
+        const existingWorkouts = await storageService.loadWorkouts()
+        const duplicateWorkout = existingWorkouts.find(
+            (w) => w.name.toLowerCase() === name.trim().toLowerCase() && w.id !== id
+        )
+        if (duplicateWorkout) {
+            setNameError(true)
+            setNameErrorMessage('This workout name already exists')
+            showAlert(
+                'Duplicate Name',
+                `A workout named "${name.trim()}" already exists. Please choose a different name.`,
+                [{ text: 'OK', onPress: () => setModalVisible(false) }]
+            )
+            return false
+        }
+
+        // Clear error if validation passes
+        setNameError(false)
+        setNameErrorMessage('')
 
         const work = parseInt(workDuration, 10)
         const rest = parseInt(restDuration, 10)
@@ -238,7 +312,8 @@ export default function CreateWorkoutScreen() {
     )
 
     const handleSave = useCallback(async () => {
-        if (!validate()) return
+        const isValid = await validate()
+        if (!isValid) return
 
         setLoading(true)
         try {
@@ -335,17 +410,22 @@ export default function CreateWorkoutScreen() {
                         style={[
                             styles.nameInputCard,
                             nameInputFocused && styles.nameInputCardFocused,
+                            nameError && styles.nameInputCardError,
                         ]}
                     >
                         <TextInput
                             style={styles.nameInput}
                             value={name}
-                            onChangeText={setName}
+                            onChangeText={(text) => {
+                                setName(text)
+                                // Real-time validation with debounce
+                                validateNameDebounced(text)
+                            }}
                             placeholder="e.g., Tabata Tuesday"
                             placeholderTextColor={colors.dark.muted}
                             onFocus={() => setNameInputFocused(true)}
                             onBlur={() => setNameInputFocused(false)}
-                            maxLength={50}
+                            maxLength={20}
                         />
                         {name.length > 0 && (
                             <TouchableOpacity
@@ -374,9 +454,14 @@ export default function CreateWorkoutScreen() {
                             />
                         </TouchableOpacity>
                     </View>
-                    {name.length > 40 && (
+                    {nameError && nameErrorMessage && (
+                        <Text style={styles.errorMessage}>
+                            {nameErrorMessage}
+                        </Text>
+                    )}
+                    {name.length > 15 && !nameError && (
                         <Text style={styles.charCount}>
-                            {name.length}/50 characters
+                            {name.length}/20 characters
                         </Text>
                     )}
 
@@ -829,6 +914,9 @@ const styles = StyleSheet.create({
     nameInputCardFocused: {
         borderColor: colors.accent,
     },
+    nameInputCardError: {
+        borderColor: '#FF453A',
+    },
     nameInput: {
         flex: 1,
         color: colors.dark.text,
@@ -845,6 +933,13 @@ const styles = StyleSheet.create({
     charCount: {
         fontSize: fontSizes.xs,
         color: colors.dark.muted,
+        marginTop: -spacing.sm,
+        marginBottom: spacing.sm,
+        marginLeft: spacing.sm,
+    },
+    errorMessage: {
+        fontSize: fontSizes.xs,
+        color: '#FF453A',
         marginTop: -spacing.sm,
         marginBottom: spacing.sm,
         marginLeft: spacing.sm,
