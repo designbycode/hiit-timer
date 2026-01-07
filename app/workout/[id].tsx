@@ -26,6 +26,7 @@ import { useButtonSound } from '@/libs/hooks/useButtonSound'
 import { TimerDisplay } from '@/libs/components/TimerDisplay'
 import CustomModal from '@/libs/components/CustomModal'
 import { Header } from '@/libs/components/Header'
+import { PhaseLabel } from '@/libs/components/PhaseLabel'
 import { Phase } from '@/libs/types/workout'
 
 import { TIMINGS } from '@/libs/constants/timings'
@@ -305,30 +306,6 @@ export default function WorkoutScreen() {
         return currentWorkout?.rounds || 0
     }, [currentWorkout])
 
-    const phaseColor = useMemo(() => {
-        const colors: Record<Phase, string> = {
-            [Phase.COUNTDOWN]: '#9E9E9E',
-            [Phase.WARM_UP]: '#4CAF50',
-            [Phase.WORK]: '#F44336',
-            [Phase.REST]: '#2196F3',
-            [Phase.COOL_DOWN]: '#FF9800',
-            [Phase.COMPLETE]: '#9C27B0',
-        }
-        return colors[timerState.phase] || '#007AFF'
-    }, [timerState.phase])
-
-    const phaseLabel = useMemo(() => {
-        const labels: Record<Phase, string> = {
-            [Phase.COUNTDOWN]: 'GET READY',
-            [Phase.WARM_UP]: 'WARM UP',
-            [Phase.WORK]: 'WORKOUT',
-            [Phase.REST]: 'REST',
-            [Phase.COOL_DOWN]: 'COOL DOWN',
-            [Phase.COMPLETE]: 'FINISHED',
-        }
-        return labels[timerState.phase] || 'ACTIVE'
-    }, [timerState.phase])
-
     useEffect(() => {
         if (timerState.phase === Phase.COMPLETE) {
             setShowCompletionModal(true)
@@ -476,13 +453,8 @@ export default function WorkoutScreen() {
 
             <View style={styles.content}>
                 {/* Workout Label */}
-                <View
-                    style={[
-                        styles.workoutLabel,
-                        { backgroundColor: phaseColor },
-                    ]}
-                >
-                    <Text style={styles.workoutLabelText}>{phaseLabel}</Text>
+                <View style={styles.workoutLabelContainer}>
+                    <PhaseLabel phase={timerState.phase} />
                 </View>
                 <TimerDisplay
                     timerState={timerState}
@@ -632,18 +604,9 @@ const styles = StyleSheet.create({
         backgroundColor: colors.dark.background,
     },
 
-    workoutLabel: {
-        alignSelf: 'center',
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        borderRadius: 20,
+    workoutLabelContainer: {
         marginBottom: spacing.lg,
-    },
-    workoutLabelText: {
-        color: colors.dark.text,
-        textTransform: 'uppercase',
-        fontSize: fontSizes.sm,
-        fontWeight: '600',
+        width: '100%',
     },
     content: {
         flex: 1,
