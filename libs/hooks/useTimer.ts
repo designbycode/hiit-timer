@@ -54,10 +54,16 @@ export function useTimer(workoutId: string | null) {
             }
           }
           
-          // Play ticking sound only in the last 5 seconds of any phase
-          // Use louder volume (75%) for urgency in final seconds
-          if (soundEnabled && state.timeRemaining <= 5 && state.timeRemaining > 0) {
-            playTicking(0.75);
+          // Play ticking sound during WORK and REST phases
+          // Use full volume (100%) in last 5 seconds, otherwise 25%
+          if (soundEnabled && (state.phase === Phase.WORK || state.phase === Phase.REST)) {
+            if (state.timeRemaining <= 5 && state.timeRemaining > 0) {
+              // Last 5 seconds: 100% volume
+              playTicking(1.0);
+            } else {
+              // Normal time: 25% volume
+              playTicking(0.25);
+            }
           } else {
             stopTicking();
           }

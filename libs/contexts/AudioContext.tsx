@@ -61,8 +61,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const playTicking = (overrideVolume?: number) => {
     if (tickingPlayer) {
       try {
-        // Set volume - use override (75% for last 5 seconds) or default 10%
-        const targetVolume = overrideVolume ?? 0.10;
+        // Set volume - use override or default 25%
+        // Override with 1.0 (100%) for last 5 seconds
+        const targetVolume = overrideVolume ?? 0.25;
         tickingPlayer.volume = targetVolume * soundVolume; // Multiply by user's volume preference
         
         if (!tickingPlayer.playing) {
