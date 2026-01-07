@@ -7,8 +7,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 import { useSettingsStore } from '@/libs/store/settingsStore';
 import { CustomSplashScreen } from '@/libs/components/SplashScreen';
+import { OnboardingScreen } from '@/libs/components/OnboardingScreen';
 import { AudioProvider } from '@/libs/contexts/AudioContext';
 import { colors } from '@/libs/constants/theme';
+import { storageService } from '@/libs/services/storage/StorageService';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -18,6 +20,7 @@ export default function RootLayout() {
 
   const { loadSettings } = useSettingsStore();
   const [isSplashVisible, setIsSplashVisible] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     const loadAppData = async () => {
@@ -25,6 +28,11 @@ export default function RootLayout() {
         console.log('Loading settings...');
         await loadSettings();
         console.log('Settings loaded');
+        
+        // Check if onboarding has been completed
+        const onboardingCompleted = await storageService.isOnboardingCompleted();
+        setShowOnboarding(!onboardingCompleted);
+        console.log('Onboarding completed:', onboardingCompleted);
       } catch (error) {
         console.error('Failed to load settings:', error);
       } finally {
@@ -43,6 +51,12 @@ export default function RootLayout() {
     setIsSplashVisible(false);
   };
 
+  const handleOnboardingComplete = async () => {
+    console.log('Onboarding complete');
+    await storageService.setOnboardingCompleted();
+    setShowOnboarding(false);
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.dark.background }}>
       <SafeAreaProvider>
@@ -53,7 +67,12 @@ export default function RootLayout() {
               <CustomSplashScreen onFinish={handleSplashFinish} />
             </View>
           )}
-          {!isSplashVisible && (
+          {!isSplashVisible && showOnboarding && (
+            <View style={styles.fullscreenBg}>
+              <OnboardingScreen onComplete={handleOnboardingComplete} />
+            </View>
+          )}
+          {!isSplashVisible && !showOnboarding && (
             <View style={styles.fullscreenBg}>
               <Stack
                 screenOptions={{

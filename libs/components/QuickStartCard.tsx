@@ -9,7 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { Workout } from '@/libs/types/workout'
 import { formatTimeShort } from '@/libs/utils/time'
-import { colors } from '@/libs/constants/theme'
+import { colors, spacing } from '@/libs/constants/theme'
 
 interface QuickStartCardProps {
     workout: Workout
@@ -51,8 +51,8 @@ export const QuickStartCard: React.FC<QuickStartCardProps> = React.memo(
                             <Text style={styles.title}>{workout.name}</Text>
                             <Text style={styles.details}>
                                 {formatDuration(totalDuration)} •{' '}
-                                {formatTimeShort(workout.workDuration)} Workout /{' '}
-                                {formatTimeShort(workout.restDuration)} Rest
+                                {formatTimeShort(workout.workDuration)} Workout
+                                / {formatTimeShort(workout.restDuration)} Rest
                             </Text>
                         </View>
                         <TouchableOpacity
@@ -74,8 +74,7 @@ const styles = StyleSheet.create({
     card: {
         height: 200,
         borderRadius: 16,
-        marginHorizontal: 16,
-        marginVertical: 16,
+        margin: spacing.md,
         overflow: 'hidden',
     },
     backgroundImage: {

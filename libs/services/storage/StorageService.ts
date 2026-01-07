@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   SETTINGS: '@hiit_timer:settings',
   LAST_WORKOUT: '@hiit_timer:last_workout',
   TIMER_STATE: '@hiit_timer:timer_state',
+  ONBOARDING: '@hiit_timer:onboarding_completed',
 } as const;
 
 class StorageService {
@@ -145,6 +146,24 @@ class StorageService {
       await AsyncStorage.removeItem(STORAGE_KEYS.TIMER_STATE);
     } catch (error) {
       console.error('Error clearing timer state:', error);
+    }
+  }
+
+  async isOnboardingCompleted(): Promise<boolean> {
+    try {
+      const value = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING);
+      return value === 'true';
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      return false;
+    }
+  }
+
+  async setOnboardingCompleted(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING, 'true');
+    } catch (error) {
+      console.error('Error setting onboarding completed:', error);
     }
   }
 }
