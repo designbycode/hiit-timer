@@ -51,12 +51,7 @@ export default function WorkoutScreen() {
         toggleVibration,
         toggleVoice,
     } = settingsStore
-    const [sessionMuted, setSessionMuted] = useState(false)
-    const [originalSettings, setOriginalSettings] = useState<{
-        sound: boolean
-        vibration: boolean
-        voice: boolean
-    } | null>(null)
+    const [workoutMuted, setWorkoutMuted] = useState(false)
 
     const {
         start,
@@ -65,7 +60,7 @@ export default function WorkoutScreen() {
         skip,
         stop: stopTimer,
         restart,
-    } = useTimer(id || null)
+    } = useTimer(id || null, workoutMuted)
     const { handlePressIn } = useButtonSound()
     const [showCompletionModal, setShowCompletionModal] = useState(false)
     const [completionVisible, setCompletionVisible] = useState(false)
@@ -602,6 +597,18 @@ export default function WorkoutScreen() {
             >
                 <View style={styles.content}>
                     {/* Mute Button */}
+                    <TouchableOpacity
+                        style={styles.muteButton}
+                        onPress={() => setWorkoutMuted(!workoutMuted)}
+                        accessibilityRole="button"
+                        accessibilityLabel={workoutMuted ? "Unmute workout" : "Mute workout"}
+                    >
+                        <Ionicons
+                            name={workoutMuted ? "volume-mute" : "volume-high"}
+                            size={24}
+                            color={workoutMuted ? "#ff6b6b" : "rgba(255, 255, 255, 0.7)"}
+                        />
+                    </TouchableOpacity>
 
                     {/* Workout Label */}
                     <View style={styles.workoutLabelContainer}>

@@ -8,9 +8,10 @@ import { useWorkoutStore } from '@/libs/store/workoutStore';
 import { useSettingsStore } from '@/libs/store/settingsStore';
 import { useAppState } from '@/libs/hooks/useAppState';
 
-export function useTimer(workoutId: string | null) {
+export function useTimer(workoutId: string | null, workoutMuted: boolean = false) {
   const engineRef = useRef<TimerEngine | null>(null);
   const workoutRef = useRef(useWorkoutStore.getState().currentWorkout);
+  const workoutMutedRef = useRef(workoutMuted);
   const lastPhaseRef = useRef<Phase | null>(null);
   const lastRoundRef = useRef<number>(0);
   const lastCountdownSecondRef = useRef<number>(0);
@@ -18,6 +19,15 @@ export function useTimer(workoutId: string | null) {
   const { currentWorkout, updateTimerState, setWorkout } = useWorkoutStore();
   const { soundEnabled, vibrationEnabled, voiceEnabled } = useSettingsStore();
   const { playTicking, stopTicking, playTone } = useAudio();
+  
+  // Keep ref updated
+  useEffect(() => {
+    workoutMutedRef.current = workoutMuted;
+  }, [workoutMuted]);
+  
+  // Apply temporary workout mute to sound and voice (keep vibration)
+  const getEffectiveSoundEnabled = () => soundEnabled && !workoutMutedRef.current;
+  const getEffectiveVoiceEnabled = () => voiceEnabled && !workoutMutedRef.current;
 
   useEffect(() => {
     workoutRef.current = currentWorkout;
@@ -40,7 +50,7 @@ export function useTimer(workoutId: string | null) {
           updateTimerState(state);
           
           // Voice countdown announcements during COUNTDOWN phase
-          if (state.phase === Phase.COUNTDOWN && voiceEnabled) {
+          if (state.phase === Phase.COUNTDOWN && getEffectiveVoiceEnabled()) {
             const secondsLeft = Math.ceil(state.timeRemaining);
             // Announce "Start in 3" at the beginning
             if (secondsLeft === 3 && lastCountdownSecondRef.current !== 3) {
@@ -56,7 +66,7 @@ export function useTimer(workoutId: string | null) {
           
           // Play ticking sound during WORK and REST phases
           // Use full volume (100%) in last 5 seconds, otherwise 25%
-          if (soundEnabled && (state.phase === Phase.WORK || state.phase === Phase.REST)) {
+          if (getEffectiveSoundEnabled() && (state.phase === Phase.WORK || state.phase === Phase.REST)) {
             if (state.timeRemaining <= 5 && state.timeRemaining > 0) {
               // Last 5 seconds: 100% volume
               playTicking(1.0);
@@ -75,21 +85,21 @@ export function useTimer(workoutId: string | null) {
             
             try {
               // Play tone at the end of each phase (when phase changes, except from COUNTDOWN)
-              if (lastPhaseRef.current !== null && lastPhaseRef.current !== Phase.COUNTDOWN && soundEnabled) {
+              if (lastPhaseRef.current !== null && lastPhaseRef.current !== Phase.COUNTDOWN && getEffectiveSoundEnabled()) {
                 playTone();
               }
               
               // Special announcement when transitioning from COUNTDOWN
               if (lastPhaseRef.current === Phase.COUNTDOWN && phase !== Phase.COUNTDOWN) {
-                if (voiceEnabled) {
+                if (getEffectiveVoiceEnabled()) {
                   speechManager.speak('Start workout');
                 }
               }
               
               await alertService.triggerAlert('PHASE_CHANGE', {
-                soundEnabled,
+                soundEnabled: getEffectiveSoundEnabled(),
                 vibrationEnabled,
-                voiceEnabled,
+                voiceEnabled: getEffectiveVoiceEnabled(),
                 phase,
                 round,
               });
@@ -103,14 +113,14 @@ export function useTimer(workoutId: string | null) {
         onComplete: async () => {
           try {
             // Play tone when timer reaches zero
-            if (soundEnabled) {
+            if (getEffectiveSoundEnabled()) {
               playTone();
             }
             
             await alertService.triggerAlert('COMPLETE', {
-              soundEnabled,
+              soundEnabled: getEffectiveSoundEnabled(),
               vibrationEnabled,
-              voiceEnabled,
+              voiceEnabled: getEffectiveVoiceEnabled(),
               phase: Phase.COMPLETE,
             });
           } catch (error) {
