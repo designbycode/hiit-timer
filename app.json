@@ -4,7 +4,7 @@
         "slug": "hiit-timer",
         "version": "1.3.0",
         "orientation": "portrait",
-        "icon": "./assets/images/main-icon.png",
+        "icon": "./assets/images/icon.png",
         "scheme": "hiittimer",
         "userInterfaceStyle": "dark",
         "newArchEnabled": true,

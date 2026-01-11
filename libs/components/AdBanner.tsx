@@ -36,7 +36,9 @@ export function AdBanner({ unitId, size, style }: AdBannerProps) {
             return (
                 <View style={[styles.container, styles.placeholder, style]}>
                     <Text style={styles.placeholderText}>
-                        {isLoading ? '⏳ Loading Ads...' : '📱 Ad Banner (AdMob not available)'}
+                        {isLoading
+                            ? '⏳ Loading Ads...'
+                            : '📱 Ad Banner (AdMob not available)'}
                     </Text>
                 </View>
             )
@@ -48,7 +50,7 @@ export function AdBanner({ unitId, size, style }: AdBannerProps) {
     const BannerAd = AdModule.BannerAd
     const BannerAdSize = AdModule.BannerAdSize
     const TestIds = AdModule.TestIds
-    
+
     // If any component is missing, don't render
     if (!BannerAd || !BannerAdSize || !TestIds) {
         console.warn('AdMob components not fully loaded')
@@ -77,7 +79,7 @@ export function AdBanner({ unitId, size, style }: AdBannerProps) {
         // Android only (iOS disabled per user request)
         return (
             Platform.select({
-                android: 'ca-app-pub-8049621865774957/6172986010',
+                android: 'ca-app-pub-8049621865774957/2084996371',
             }) || TestIds.BANNER
         )
     }
