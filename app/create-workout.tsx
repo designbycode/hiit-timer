@@ -91,23 +91,29 @@ export default function CreateWorkoutScreen() {
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: () => true,
+            onPanResponderTerminationRequest: () => true,
             onPanResponderGrant: (evt) => {
-                isDragging.current = true
-                setIsSliderDragging(true)
-                hapticManager.trigger('light')
-                const locationX = evt.nativeEvent.locationX
-                updateWorkDurationFromPosition(locationX)
+                isDragging.current = true;
+                setIsSliderDragging(true);
+                hapticManager.trigger('light');
+                const locationX = evt.nativeEvent.locationX;
+                updateWorkDurationFromPosition(locationX);
             },
-            onPanResponderMove: (evt) => {
-                if (isDragging.current) {
-                    const locationX = evt.nativeEvent.locationX
-                    updateWorkDurationFromPosition(locationX)
-                }
+            onPanResponderMove: (evt, gestureState) => {
+                if (!isDragging.current) return;
+                // Use gestureState.dx for smoother tracking of movement
+                const touchX = Math.max(0, Math.min(gestureState.moveX, sliderWidth.current));
+                updateWorkDurationFromPosition(touchX);
             },
             onPanResponderRelease: () => {
-                isDragging.current = false
-                setIsSliderDragging(false)
+                isDragging.current = false;
+                setIsSliderDragging(false);
+                hapticManager.trigger('light');
             },
+            onPanResponderTerminate: () => {
+                isDragging.current = false;
+                setIsSliderDragging(false);
+            }
         })
     ).current
 
@@ -703,7 +709,7 @@ export default function CreateWorkoutScreen() {
                                                 (parseInt(
                                                     warmUpDuration || '60',
                                                     10
-                                                ) || 60) - 15
+                                                ) || 60) - 5
                                             )
                                             setWarmUpDuration(String(v))
                                         }}
@@ -723,7 +729,7 @@ export default function CreateWorkoutScreen() {
                                                 (parseInt(
                                                     warmUpDuration || '60',
                                                     10
-                                                ) || 60) + 15
+                                                ) || 60) + 5
                                             )
                                             setWarmUpDuration(String(v))
                                         }}
@@ -786,7 +792,7 @@ export default function CreateWorkoutScreen() {
                                                 (parseInt(
                                                     coolDownDuration || '60',
                                                     10
-                                                ) || 60) - 15
+                                                ) || 60) - 5
                                             )
                                             setCoolDownDuration(String(v))
                                         }}
@@ -806,7 +812,7 @@ export default function CreateWorkoutScreen() {
                                                 (parseInt(
                                                     coolDownDuration || '60',
                                                     10
-                                                ) || 60) + 15
+                                                ) || 60) + 5
                                             )
                                             setCoolDownDuration(String(v))
                                         }}

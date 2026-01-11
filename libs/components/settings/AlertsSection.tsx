@@ -118,7 +118,8 @@ export function AlertsSection({
                                 <Text
                                     style={[
                                         styles.volumeOptionText,
-                                        Math.abs(soundVolume - opt.value) < 0.05 &&
+                                        Math.abs(soundVolume - opt.value) <
+                                            0.05 &&
                                             styles.volumeOptionTextActive,
                                     ]}
                                 >
@@ -175,6 +176,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flex: 1,
+        width: '108%',
         marginTop: spacing.sm,
         gap: spacing.sm,
     },
