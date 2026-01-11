@@ -10,6 +10,7 @@ import {
     Animated,
     AppState,
     Dimensions,
+    ScrollView,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams } from 'expo-router'
@@ -19,10 +20,12 @@ import {
     useTimerState,
     useIsActive,
 } from '@/libs/store/workoutStore'
+import { useSettingsStore } from '@/libs/store/settingsStore'
 import { useTimer } from '@/libs/hooks/useTimer'
 import { useKeepScreenAwake } from '@/libs/hooks/useKeepAwake'
 import { useBackgroundPersistence } from '@/libs/hooks/useBackgroundPersistence'
 import { useButtonSound } from '@/libs/hooks/useButtonSound'
+import { useAudio } from '@/libs/contexts/AudioContext'
 import { TimerDisplay } from '@/libs/components/TimerDisplay'
 import CustomModal from '@/libs/components/CustomModal'
 import { Header } from '@/libs/components/Header'
@@ -39,6 +42,22 @@ export default function WorkoutScreen() {
     const timerState = useTimerState()
     const isActive = useIsActive()
     const { currentWorkout } = useWorkoutStore()
+    const settingsStore = useSettingsStore()
+    const {
+        soundEnabled,
+        vibrationEnabled,
+        voiceEnabled,
+        toggleSound,
+        toggleVibration,
+        toggleVoice,
+    } = settingsStore
+    const [sessionMuted, setSessionMuted] = useState(false)
+    const [originalSettings, setOriginalSettings] = useState<{
+        sound: boolean
+        vibration: boolean
+        voice: boolean
+    } | null>(null)
+
     const {
         start,
         pause,
@@ -306,6 +325,130 @@ export default function WorkoutScreen() {
         return currentWorkout?.rounds || 0
     }, [currentWorkout])
 
+    // Calculate total workout duration (memoized, only changes if workout changes)
+    const totalWorkoutDuration = useMemo(() => {
+        if (!currentWorkout) return 0
+
+        let total = TIMINGS.COUNTDOWN_DURATION
+        if (currentWorkout.warmUpDuration)
+            total += currentWorkout.warmUpDuration
+        total += currentWorkout.workDuration * currentWorkout.rounds
+        total += currentWorkout.restDuration * (currentWorkout.rounds - 1)
+        if (currentWorkout.coolDownDuration)
+            total += currentWorkout.coolDownDuration
+
+        return total
+    }, [currentWorkout])
+
+    // Calculate elapsed time directly (always increases, never decreases)
+    const elapsedTime = useMemo(() => {
+        if (!currentWorkout) return 0
+
+        let elapsed = 0
+
+        // Calculate based on current phase
+        switch (timerState.phase) {
+            case Phase.COUNTDOWN:
+                // Only countdown progress
+                elapsed = TIMINGS.COUNTDOWN_DURATION - timerState.timeRemaining
+                break
+
+            case Phase.WARM_UP:
+                // Countdown complete + warmup progress
+                elapsed = TIMINGS.COUNTDOWN_DURATION
+                elapsed +=
+                    (currentWorkout.warmUpDuration || 0) -
+                    timerState.timeRemaining
+                break
+
+            case Phase.WORK:
+                // Countdown + warmup + completed rounds + current work progress
+                elapsed = TIMINGS.COUNTDOWN_DURATION
+                if (currentWorkout.warmUpDuration)
+                    elapsed += currentWorkout.warmUpDuration
+
+                // Add FULLY completed rounds (both work AND rest done)
+                const fullyCompletedRounds = timerState.currentRound
+                if (fullyCompletedRounds > 0) {
+                    elapsed +=
+                        fullyCompletedRounds *
+                        (currentWorkout.workDuration +
+                            currentWorkout.restDuration)
+                }
+
+                // Add current work phase progress
+                elapsed +=
+                    currentWorkout.workDuration - timerState.timeRemaining
+                break
+
+            case Phase.REST:
+                // Countdown + warmup + completed rounds + current round's work (done) + rest progress
+                elapsed = TIMINGS.COUNTDOWN_DURATION
+                if (currentWorkout.warmUpDuration)
+                    elapsed += currentWorkout.warmUpDuration
+
+                // BUG FIX: currentRound increments AFTER work phase completes
+                // So during REST, currentRound is already incremented by 1
+                const actualRoundNumber = timerState.currentRound - 1
+
+                // Add FULLY completed rounds (both work AND rest done)
+                if (actualRoundNumber > 0) {
+                    elapsed +=
+                        actualRoundNumber *
+                        (currentWorkout.workDuration +
+                            currentWorkout.restDuration)
+                }
+
+                // Add current round's work (completed) + rest progress
+                elapsed += currentWorkout.workDuration
+                elapsed +=
+                    currentWorkout.restDuration - timerState.timeRemaining
+                break
+
+            case Phase.COOL_DOWN:
+                // Everything except cooldown is complete
+                elapsed = TIMINGS.COUNTDOWN_DURATION
+                if (currentWorkout.warmUpDuration)
+                    elapsed += currentWorkout.warmUpDuration
+                elapsed += currentWorkout.rounds * currentWorkout.workDuration
+                elapsed +=
+                    (currentWorkout.rounds - 1) * currentWorkout.restDuration
+                elapsed +=
+                    (currentWorkout.coolDownDuration || 0) -
+                    timerState.timeRemaining
+                break
+
+            case Phase.COMPLETE:
+                elapsed = totalWorkoutDuration
+                break
+        }
+
+        return elapsed
+    }, [
+        currentWorkout,
+        timerState.phase,
+        timerState.currentRound,
+        timerState.timeRemaining,
+        totalWorkoutDuration,
+    ])
+
+    // Calculate remaining time from elapsed
+    const totalRemainingTime = totalWorkoutDuration - elapsedTime
+
+    // Calculate total workout progress (0 to 1)
+    const totalProgress = useMemo(() => {
+        if (totalWorkoutDuration === 0) return 0
+        if (timerState.phase === Phase.COMPLETE) return 1
+
+        // Progress = elapsed / total (always increases from 0 to 1)
+        const progress = Math.max(
+            0,
+            Math.min(1, elapsedTime / totalWorkoutDuration)
+        )
+
+        return progress
+    }, [totalWorkoutDuration, elapsedTime, timerState.phase])
+
     useEffect(() => {
         if (timerState.phase === Phase.COMPLETE) {
             setShowCompletionModal(true)
@@ -452,71 +595,90 @@ export default function WorkoutScreen() {
 
             {/* Workout Name */}
 
-            <View style={styles.content}>
-                {/* Workout Label */}
-                <View style={styles.workoutLabelContainer}>
-                    <PhaseLabel phase={timerState.phase} />
-                </View>
-                <TimerDisplay
-                    timerState={timerState}
-                    totalRounds={totalRounds}
-                    workoutName={currentWorkout.name}
-                    onPress={() => {
-                        if (timerState.phase === Phase.COMPLETE) {
-                            // Restart when workout is complete
-                            restart()
-                        } else if (
-                            !timerState.isRunning &&
-                            timerState.phase === Phase.COUNTDOWN
-                        ) {
-                            start()
-                        } else if (timerState.isRunning) {
-                            handlePauseResume()
-                        }
-                    }}
-                />
-                <View style={styles.controls}>
-                    {/* Three action buttons: Reset, Skip, End */}
-                    <View style={styles.actionButtonRow}>
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={handleRestart}
-                            onPressIn={handlePressIn}
-                            accessibilityRole="button"
-                            accessibilityLabel="Reset"
-                        >
-                            <Ionicons name="refresh" size={32} color="#999" />
-                            <Text style={styles.actionButtonLabel}>Reset</Text>
-                        </TouchableOpacity>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.content}>
+                    {/* Mute Button */}
 
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={handleSkip}
-                            onPressIn={handlePressIn}
-                            accessibilityRole="button"
-                            accessibilityLabel="Skip"
-                        >
-                            <Ionicons
-                                name="play-forward"
-                                size={32}
-                                color="#999"
-                            />
-                            <Text style={styles.actionButtonLabel}>Skip</Text>
-                        </TouchableOpacity>
+                    {/* Workout Label */}
+                    <View style={styles.workoutLabelContainer}>
+                        <PhaseLabel phase={timerState.phase} />
+                    </View>
+                    <TimerDisplay
+                        timerState={timerState}
+                        totalRounds={totalRounds}
+                        workoutName={currentWorkout.name}
+                        totalProgress={totalProgress}
+                        onPress={() => {
+                            if (timerState.phase === Phase.COMPLETE) {
+                                // Restart when workout is complete
+                                restart()
+                            } else if (
+                                !timerState.isRunning &&
+                                timerState.phase === Phase.COUNTDOWN
+                            ) {
+                                start()
+                            } else if (timerState.isRunning) {
+                                handlePauseResume()
+                            }
+                        }}
+                    />
+                    <View style={styles.controls}>
+                        {/* Three action buttons: Reset, Skip, End */}
+                        <View style={styles.actionButtonRow}>
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={handleRestart}
+                                onPressIn={handlePressIn}
+                                accessibilityRole="button"
+                                accessibilityLabel="Reset"
+                            >
+                                <Ionicons
+                                    name="refresh"
+                                    size={32}
+                                    color="#999"
+                                />
+                                <Text style={styles.actionButtonLabel}>
+                                    Reset
+                                </Text>
+                            </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={handleStop}
-                            onPressIn={handlePressIn}
-                            accessibilityRole="button"
-                            accessibilityLabel="End"
-                        >
-                            <Ionicons name="stop" size={32} color="#999" />
-                            <Text style={styles.actionButtonLabel}>End</Text>
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={handleSkip}
+                                onPressIn={handlePressIn}
+                                accessibilityRole="button"
+                                accessibilityLabel="Skip"
+                            >
+                                <Ionicons
+                                    name="play-forward"
+                                    size={32}
+                                    color="#999"
+                                />
+                                <Text style={styles.actionButtonLabel}>
+                                    Skip
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={handleStop}
+                                onPressIn={handlePressIn}
+                                accessibilityRole="button"
+                                accessibilityLabel="End"
+                            >
+                                <Ionicons name="stop" size={32} color="#999" />
+                                <Text style={styles.actionButtonLabel}>
+                                    End
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
-            </View>
+            </ScrollView>
 
             {/* Ad Banner at bottom - Temporarily disabled, requires native rebuild */}
             <AdBanner style={styles.adBanner} />
@@ -604,7 +766,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.dark.background,
     },
-
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+    },
     workoutLabelContainer: {
         marginBottom: spacing.lg,
         width: '100%',
@@ -644,5 +811,16 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
+    },
+    muteButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+        backgroundColor: 'transparent',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: spacing.md,
     },
 })

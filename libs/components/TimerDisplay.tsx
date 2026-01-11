@@ -25,10 +25,11 @@ interface TimerDisplayProps {
     totalRounds: number
     onPress?: () => void
     workoutName?: string
+    totalProgress?: number
 }
 
 export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(
-    ({ timerState, totalRounds, onPress, workoutName }) => {
+    ({ timerState, totalRounds, onPress, workoutName, totalProgress }) => {
         const { handlePressIn, playButtonSound } = useButtonSound()
         const { vibrationEnabled } = useSettingsStore()
 
@@ -126,6 +127,8 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(
                         strokeWidth={strokeWidth}
                         color={phaseColor}
                         backgroundColor="#333"
+                        totalProgress={totalProgress}
+                        totalProgressColor="#888"
                     />
                     <View style={styles.content}>
                         {/* Workout name - absolute positioned at top */}
