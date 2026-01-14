@@ -19,7 +19,7 @@ import { WorkoutHistory } from '@/libs/types/workout';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_WIDTH = SCREEN_WIDTH - spacing.lg * 2;
+const CHART_WIDTH = SCREEN_WIDTH - spacing.md * 2;
 
 type TabType = 'History' | 'Stats' | 'Calendar';
 type DateFilterType = 'all' | 'week' | 'month' | 'year';
@@ -78,52 +78,6 @@ export default function HistoryScreen() {
     );
   };
 
-  const handleClearAllHistory = () => {
-    Alert.alert(
-      'Clear All History',
-      'Are you sure you want to delete all workout history? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear All',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await storageService.clearWorkoutHistory();
-              await loadHistory();
-            } catch (error) {
-              console.error('Failed to clear history:', error);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleExportHistory = () => {
-    if (history.length === 0) {
-      Alert.alert('No Data', 'There is no workout history to export.');
-      return;
-    }
-
-    const csvContent = [
-      'Workout Name,Date,Time,Duration (seconds),Rounds,Calories',
-      ...filteredHistory.map((h) => {
-        const date = new Date(h.completedAt);
-        return `"${h.workoutName}","${date.toLocaleDateString()}","${date.toLocaleTimeString()}",${h.duration},${h.rounds},${h.calories || 0}`;
-      }),
-    ].join('\n');
-
-    Alert.alert(
-      'Export History',
-      `Ready to export ${filteredHistory.length} workouts.\n\nData format: CSV\n\nNote: In a production app, this would save to a file or share via email.`,
-      [
-        { text: 'OK', style: 'default' },
-      ]
-    );
-    
-    console.log('CSV Export Data:\n', csvContent);
-  };
 
   // Filter history by date range
   const filteredHistory = useMemo(() => {
@@ -804,7 +758,7 @@ export default function HistoryScreen() {
 
   const renderDateFilter = () => (
     <View style={styles.filterContainer}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
         {(['all', 'week', 'month', 'year'] as DateFilterType[]).map((filter) => (
           <TouchableOpacity
             key={filter}
@@ -818,14 +772,6 @@ export default function HistoryScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-      <View style={styles.filterActions}>
-        <TouchableOpacity onPress={handleExportHistory} style={styles.actionIconButton}>
-          <Ionicons name="share-outline" size={22} color={colors.dark.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleClearAllHistory} style={styles.actionIconButton}>
-          <Ionicons name="trash-outline" size={22} color={colors.dark.danger} />
-        </TouchableOpacity>
-      </View>
     </View>
   );
 
@@ -893,7 +839,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.dark.background,
   },
   header: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.dark.border,
@@ -911,7 +857,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.dark.surface,
   },
   tabList: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   tab: {
     paddingVertical: spacing.md,
@@ -975,7 +921,7 @@ const styles = StyleSheet.create({
 
   // History Section
   historyList: {
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   historyCard: {
     backgroundColor: colors.dark.surface,
@@ -1027,19 +973,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionContent: {
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   statCard: {
     backgroundColor: colors.dark.surface,
     borderRadius: 12,
     padding: spacing.md,
-    width: (SCREEN_WIDTH - spacing.lg * 2 - spacing.md) / 2,
+    width: (SCREEN_WIDTH - spacing.md * 2 - spacing.sm) / 2,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.dark.border,
@@ -1060,8 +1006,8 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.lg,
     fontWeight: 'bold',
     color: colors.dark.text,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   chartContainer: {
     backgroundColor: colors.dark.surface,
@@ -1101,20 +1047,19 @@ const styles = StyleSheet.create({
 
   // Filter Section
   filterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     backgroundColor: colors.dark.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.dark.border,
   },
+  filterScrollContent: {
+    gap: spacing.sm,
+  },
   filterButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 8,
-    marginRight: spacing.sm,
     backgroundColor: colors.dark.background,
     borderWidth: 1,
     borderColor: colors.dark.border,
@@ -1130,20 +1075,6 @@ const styles = StyleSheet.create({
   },
   filterButtonTextActive: {
     color: colors.dark.background,
-  },
-  filterActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.dark.background,
-    borderWidth: 1,
-    borderColor: colors.dark.border,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 
   // Calendar Section
@@ -1210,7 +1141,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   calendarDayHeader: {
-    width: (SCREEN_WIDTH - spacing.lg * 2 - spacing.md * 2) / 7,
+    width: (SCREEN_WIDTH - spacing.md * 2 - spacing.md * 2) / 7,
     alignItems: 'center',
     paddingVertical: spacing.xs,
   },
@@ -1220,7 +1151,7 @@ const styles = StyleSheet.create({
     color: colors.dark.textSecondary,
   },
   calendarDay: {
-    width: (SCREEN_WIDTH - spacing.lg * 2 - spacing.md * 2) / 7,
+    width: (SCREEN_WIDTH - spacing.md * 2 - spacing.md * 2) / 7,
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1228,7 +1159,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   calendarDaySimple: {
-    width: (SCREEN_WIDTH - spacing.lg * 2 - spacing.md * 2) / 7,
+    width: (SCREEN_WIDTH - spacing.md * 2 - spacing.md * 2) / 7,
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
