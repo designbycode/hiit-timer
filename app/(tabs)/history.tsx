@@ -29,6 +29,8 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState<TabType>('History');
   const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -298,24 +300,86 @@ export default function HistoryScreen() {
     return { labels, data: dailyDuration };
   }, [history]);
 
-  // Calendar data - workouts per day this month
+  // Calendar data - workouts per day for selected month
   const calendarData = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const year = selectedMonth.getFullYear();
+    const month = selectedMonth.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
     const monthData = Array.from({ length: daysInMonth }, (_, i) => {
       const dayStart = new Date(year, month, i + 1, 0, 0, 0, 0).getTime();
       const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-      const count = history.filter(
+      const dayWorkouts = history.filter(
         (h) => h.completedAt >= dayStart && h.completedAt < dayEnd
-      ).length;
-      return { day: i + 1, count };
+      );
+      const count = dayWorkouts.length;
+      const totalDuration = dayWorkouts.reduce((sum, h) => sum + h.duration, 0);
+      const totalCalories = dayWorkouts.reduce((sum, h) => sum + (h.calories || 0), 0);
+      
+      return { 
+        day: i + 1, 
+        count, 
+        totalDuration, 
+        totalCalories,
+        workouts: dayWorkouts,
+      };
     });
 
     return monthData;
-  }, [history]);
+  }, [history, selectedMonth]);
+
+  // Month statistics
+  const monthStats = useMemo(() => {
+    const totalWorkouts = calendarData.reduce((sum, d) => sum + d.count, 0);
+    const totalDuration = calendarData.reduce((sum, d) => sum + d.totalDuration, 0);
+    const totalCalories = calendarData.reduce((sum, d) => sum + d.totalCalories, 0);
+    const activeDays = calendarData.filter((d) => d.count > 0).length;
+    const maxWorkoutsDay = calendarData.reduce((max, d) => d.count > max.count ? d : max, calendarData[0] || { count: 0 });
+
+    return {
+      totalWorkouts,
+      totalDuration,
+      totalCalories,
+      activeDays,
+      maxWorkoutsDay: maxWorkoutsDay.count,
+    };
+  }, [calendarData]);
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setSelectedMonth((prev) => {
+      const newDate = new Date(prev);
+      if (direction === 'prev') {
+        newDate.setMonth(newDate.getMonth() - 1);
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1);
+      }
+      return newDate;
+    });
+    setSelectedDay(null);
+  };
+
+  const goToToday = () => {
+    setSelectedMonth(new Date());
+    setSelectedDay(new Date().getDate());
+  };
+
+  // Get dot color based on workout count
+  const getDotColor = (count: number): string => {
+    if (count === 0) return 'transparent';
+    if (count === 1) return colors.dark.info; // Blue for 1 workout
+    if (count === 2) return colors.dark.success; // Green for 2 workouts
+    if (count >= 3) return colors.dark.primary; // Orange for 3+ workouts
+    return 'transparent';
+  };
+
+  // Get dot size based on workout count
+  const getDotSize = (count: number): number => {
+    if (count === 0) return 0;
+    if (count === 1) return 6;
+    if (count === 2) return 8;
+    if (count >= 3) return 10;
+    return 0;
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -551,8 +615,9 @@ export default function HistoryScreen() {
 
   const renderCalendarSection = () => {
     const now = new Date();
-    const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+    const monthName = selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const firstDayOfMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1).getDay();
+    const isCurrentMonth = selectedMonth.getMonth() === now.getMonth() && selectedMonth.getFullYear() === now.getFullYear();
 
     return (
       <ScrollView 
@@ -560,70 +625,179 @@ export default function HistoryScreen() {
         contentContainerStyle={styles.sectionContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.calendarMonth}>{monthName}</Text>
-        
-        {/* Calendar Grid */}
+        {/* Month Navigation */}
+        <View style={styles.calendarHeader}>
+          <TouchableOpacity 
+            onPress={() => navigateMonth('prev')}
+            style={styles.monthNavButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={24} color={colors.dark.text} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity onPress={goToToday} activeOpacity={0.7}>
+            <Text style={styles.calendarMonth}>{monthName}</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            onPress={() => navigateMonth('next')}
+            style={styles.monthNavButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-forward" size={24} color={colors.dark.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Month Statistics Summary */}
+        <View style={styles.monthStatsContainer}>
+          <View style={styles.monthStatItem}>
+            <Text style={styles.monthStatValue}>{monthStats.totalWorkouts}</Text>
+            <Text style={styles.monthStatLabel}>Workouts</Text>
+          </View>
+          <View style={styles.monthStatItem}>
+            <Text style={styles.monthStatValue}>{monthStats.activeDays}</Text>
+            <Text style={styles.monthStatLabel}>Active Days</Text>
+          </View>
+          <View style={styles.monthStatItem}>
+            <Text style={styles.monthStatValue}>{formatTime(monthStats.totalDuration)}</Text>
+            <Text style={styles.monthStatLabel}>Total Time</Text>
+          </View>
+          <View style={styles.monthStatItem}>
+            <Text style={styles.monthStatValue}>{monthStats.totalCalories}</Text>
+            <Text style={styles.monthStatLabel}>Calories</Text>
+          </View>
+        </View>
+
+        {/* Heat Map Calendar Grid */}
         <View style={styles.calendarContainer}>
           {/* Day headers */}
           <View style={styles.calendarRow}>
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <View key={day} style={styles.calendarDayHeader}>
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+              <View key={index} style={styles.calendarDayHeader}>
                 <Text style={styles.calendarDayHeaderText}>{day}</Text>
               </View>
             ))}
           </View>
 
-          {/* Calendar days */}
+          {/* Calendar days with colored dots */}
           {Array.from({ length: Math.ceil((calendarData.length + firstDayOfMonth) / 7) }).map((_, weekIndex) => (
             <View key={weekIndex} style={styles.calendarRow}>
               {Array.from({ length: 7 }).map((_, dayIndex) => {
                 const dayNumber = weekIndex * 7 + dayIndex - firstDayOfMonth + 1;
                 const dayData = calendarData.find((d) => d.day === dayNumber);
-                const isToday = dayNumber === now.getDate();
+                const isToday = isCurrentMonth && dayNumber === now.getDate();
+                const isSelected = selectedDay === dayNumber;
 
                 if (dayNumber < 1 || dayNumber > calendarData.length) {
                   return <View key={dayIndex} style={styles.calendarDay} />;
                 }
 
+                const dotColor = getDotColor(dayData?.count || 0);
+                const dotSize = getDotSize(dayData?.count || 0);
+
                 return (
-                  <View 
-                    key={dayIndex} 
+                  <TouchableOpacity
+                    key={dayIndex}
                     style={[
-                      styles.calendarDay,
-                      isToday && styles.calendarDayToday,
-                      dayData && dayData.count > 0 && styles.calendarDayActive,
+                      styles.calendarDaySimple,
+                      isToday && styles.calendarDayTodayBorder,
+                      isSelected && styles.calendarDaySelected,
                     ]}
+                    onPress={() => setSelectedDay(isSelected ? null : dayNumber)}
+                    activeOpacity={0.7}
                   >
                     <Text style={[
-                      styles.calendarDayText,
+                      styles.calendarDayTextSimple,
                       isToday && styles.calendarDayTextToday,
-                      dayData && dayData.count > 0 && styles.calendarDayTextActive,
+                      isSelected && styles.calendarDayTextSelected,
                     ]}>
                       {dayNumber}
                     </Text>
                     {dayData && dayData.count > 0 && (
-                      <View style={styles.calendarDayBadge}>
-                        <Text style={styles.calendarDayBadgeText}>{dayData.count}</Text>
-                      </View>
+                      <View style={[
+                        styles.workoutDot,
+                        { 
+                          backgroundColor: dotColor, 
+                          width: dotSize, 
+                          height: dotSize,
+                          borderRadius: dotSize / 2,
+                        }
+                      ]} />
                     )}
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
           ))}
         </View>
 
-        {/* Calendar Legend */}
-        <View style={styles.legendContainer}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.dark.primary }]} />
-            <Text style={styles.legendText}>Workout completed</Text>
+        {/* Dot Legend */}
+        <View style={styles.dotLegend}>
+          <View style={styles.dotLegendItem}>
+            <View style={[styles.legendDotExample, { backgroundColor: colors.dark.info, width: 6, height: 6 }]} />
+            <Text style={styles.dotLegendText}>1 workout</Text>
           </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.dark.border }]} />
-            <Text style={styles.legendText}>No workout</Text>
+          <View style={styles.dotLegendItem}>
+            <View style={[styles.legendDotExample, { backgroundColor: colors.dark.success, width: 8, height: 8 }]} />
+            <Text style={styles.dotLegendText}>2 workouts</Text>
+          </View>
+          <View style={styles.dotLegendItem}>
+            <View style={[styles.legendDotExample, { backgroundColor: colors.dark.primary, width: 10, height: 10 }]} />
+            <Text style={styles.dotLegendText}>3+ workouts</Text>
           </View>
         </View>
+
+        {/* Selected Day Details */}
+        {selectedDay && (
+          <>
+            {calendarData.find((d) => d.day === selectedDay)?.count === 0 && (
+              <View style={styles.noWorkoutMessage}>
+                <Ionicons name="calendar-outline" size={48} color={colors.dark.textSecondary} />
+                <Text style={styles.noWorkoutTitle}>No Workout</Text>
+                <Text style={styles.noWorkoutText}>
+                  {selectedMonth.toLocaleDateString('en-US', { month: 'long' })} {selectedDay} - Rest Day
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+        {selectedDay && calendarData.find((d) => d.day === selectedDay)?.count > 0 && (
+          <View style={styles.selectedDayDetails}>
+            <View style={styles.selectedDayHeader}>
+              <Text style={styles.selectedDayTitle}>
+                {selectedMonth.toLocaleDateString('en-US', { month: 'long' })} {selectedDay}
+              </Text>
+              <TouchableOpacity onPress={() => setSelectedDay(null)}>
+                <Ionicons name="close" size={24} color={colors.dark.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            {calendarData.find((d) => d.day === selectedDay)?.workouts.map((workout, index) => (
+              <View key={workout.id} style={styles.selectedDayWorkout}>
+                <View style={styles.selectedDayWorkoutHeader}>
+                  <Ionicons name="fitness" size={20} color={colors.dark.primary} />
+                  <Text style={styles.selectedDayWorkoutName}>{workout.workoutName}</Text>
+                </View>
+                <View style={styles.selectedDayWorkoutStats}>
+                  <View style={styles.selectedDayWorkoutStat}>
+                    <Ionicons name="time-outline" size={16} color={colors.dark.textSecondary} />
+                    <Text style={styles.selectedDayWorkoutStatText}>
+                      {new Date(workout.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                  <View style={styles.selectedDayWorkoutStat}>
+                    <Ionicons name="timer-outline" size={16} color={colors.dark.textSecondary} />
+                    <Text style={styles.selectedDayWorkoutStatText}>{formatTime(workout.duration)}</Text>
+                  </View>
+                  <View style={styles.selectedDayWorkoutStat}>
+                    <Ionicons name="flame-outline" size={16} color={colors.dark.warning} />
+                    <Text style={styles.selectedDayWorkoutStatText}>{workout.calories || 0} cal</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
     );
   };
@@ -973,13 +1147,56 @@ const styles = StyleSheet.create({
   },
 
   // Calendar Section
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.sm,
+  },
+  monthNavButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.dark.surface,
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   calendarMonth: {
     fontSize: fontSizes.xl,
     fontWeight: 'bold',
     color: colors.dark.text,
-    marginBottom: spacing.lg,
     textAlign: 'center',
   },
+  
+  // Month Statistics
+  monthStatsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: colors.dark.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+  },
+  monthStatItem: {
+    alignItems: 'center',
+  },
+  monthStatValue: {
+    fontSize: fontSizes.lg,
+    fontWeight: 'bold',
+    color: colors.dark.primary,
+    marginBottom: spacing.xs,
+  },
+  monthStatLabel: {
+    fontSize: fontSizes.xs,
+    color: colors.dark.textSecondary,
+  },
+
+  // Heat Map Calendar
   calendarContainer: {
     backgroundColor: colors.dark.surface,
     borderRadius: 12,
@@ -1010,57 +1227,144 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     position: 'relative',
   },
-  calendarDayToday: {
-    backgroundColor: colors.dark.border,
+  calendarDaySimple: {
+    width: (SCREEN_WIDTH - spacing.lg * 2 - spacing.md * 2) / 7,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    borderRadius: 8,
   },
-  calendarDayActive: {
-    backgroundColor: colors.dark.primary,
+  calendarDayTodayBorder: {
+    borderWidth: 2,
+    borderColor: colors.dark.primary,
+  },
+  calendarDaySelected: {
+    backgroundColor: 'rgba(255, 152, 0, 0.15)',
   },
   calendarDayText: {
     fontSize: fontSizes.sm,
     color: colors.dark.text,
   },
+  calendarDayTextSimple: {
+    fontSize: fontSizes.md,
+    color: colors.dark.text,
+    fontWeight: '500',
+  },
   calendarDayTextToday: {
+    color: colors.dark.primary,
     fontWeight: 'bold',
   },
-  calendarDayTextActive: {
-    color: colors.dark.background,
+  calendarDayTextSelected: {
     fontWeight: 'bold',
   },
-  calendarDayBadge: {
+  workoutDot: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: colors.dark.warning,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
+    bottom: 4,
   },
-  calendarDayBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: colors.dark.background,
-  },
-  legendContainer: {
+
+  // Dot Legend
+  dotLegend: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'space-around',
     marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.dark.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.dark.border,
   },
-  legendItem: {
+  dotLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  legendDotExample: {
+    borderRadius: 50,
+  },
+  dotLegendText: {
+    fontSize: fontSizes.sm,
+    color: colors.dark.text,
+    fontWeight: '500',
+  },
+
+  // No Workout Message
+  noWorkoutMessage: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.dark.surface,
+    borderRadius: 12,
+    padding: spacing.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+  },
+  noWorkoutTitle: {
+    fontSize: fontSizes.lg,
+    fontWeight: 'bold',
+    color: colors.dark.text,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  noWorkoutText: {
+    fontSize: fontSizes.md,
+    color: colors.dark.textSecondary,
+    textAlign: 'center',
+  },
+
+  // Selected Day Details
+  selectedDayDetails: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.dark.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+  },
+  selectedDayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.dark.border,
+  },
+  selectedDayTitle: {
+    fontSize: fontSizes.lg,
+    fontWeight: 'bold',
+    color: colors.dark.text,
+  },
+  selectedDayWorkout: {
+    backgroundColor: colors.dark.background,
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  selectedDayWorkoutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  selectedDayWorkoutName: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.dark.text,
+    flex: 1,
+  },
+  selectedDayWorkoutStats: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+  },
+  selectedDayWorkoutStat: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendText: {
+  selectedDayWorkoutStatText: {
     fontSize: fontSizes.sm,
     color: colors.dark.textSecondary,
   },
