@@ -22,11 +22,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - spacing.lg * 2;
 
 type TabType = 'History' | 'Stats' | 'Calendar';
+type DateFilterType = 'all' | 'week' | 'month' | 'year';
 
 export default function HistoryScreen() {
   const [history, setHistory] = useState<WorkoutHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState<TabType>('History');
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
   const router = useRouter();
 
   useEffect(() => {
@@ -74,9 +76,71 @@ export default function HistoryScreen() {
     );
   };
 
+  const handleClearAllHistory = () => {
+    Alert.alert(
+      'Clear All History',
+      'Are you sure you want to delete all workout history? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await storageService.clearWorkoutHistory();
+              await loadHistory();
+            } catch (error) {
+              console.error('Failed to clear history:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleExportHistory = () => {
+    if (history.length === 0) {
+      Alert.alert('No Data', 'There is no workout history to export.');
+      return;
+    }
+
+    const csvContent = [
+      'Workout Name,Date,Time,Duration (seconds),Rounds,Calories',
+      ...filteredHistory.map((h) => {
+        const date = new Date(h.completedAt);
+        return `"${h.workoutName}","${date.toLocaleDateString()}","${date.toLocaleTimeString()}",${h.duration},${h.rounds},${h.calories || 0}`;
+      }),
+    ].join('\n');
+
+    Alert.alert(
+      'Export History',
+      `Ready to export ${filteredHistory.length} workouts.\n\nData format: CSV\n\nNote: In a production app, this would save to a file or share via email.`,
+      [
+        { text: 'OK', style: 'default' },
+      ]
+    );
+    
+    console.log('CSV Export Data:\n', csvContent);
+  };
+
+  // Filter history by date range
+  const filteredHistory = useMemo(() => {
+    if (dateFilter === 'all') return history;
+
+    const now = Date.now();
+    const filterDate = {
+      week: now - 7 * 24 * 60 * 60 * 1000,
+      month: now - 30 * 24 * 60 * 60 * 1000,
+      year: now - 365 * 24 * 60 * 60 * 1000,
+    }[dateFilter];
+
+    return history.filter((h) => h.completedAt >= filterDate);
+  }, [history, dateFilter]);
+
   // Calculate statistics
   const stats = useMemo(() => {
-    if (history.length === 0) {
+    const data = filteredHistory;
+    if (data.length === 0) {
       return {
         totalWorkouts: 0,
         totalDuration: 0,
@@ -84,15 +148,19 @@ export default function HistoryScreen() {
         avgDuration: 0,
         totalRounds: 0,
         mostFrequentWorkout: '',
+        workoutDistribution: [],
+        longestWorkout: null,
+        currentStreak: 0,
+        bestStreak: 0,
       };
     }
 
-    const totalDuration = history.reduce((sum, h) => sum + h.duration, 0);
-    const totalCalories = history.reduce((sum, h) => sum + (h.calories || 0), 0);
-    const totalRounds = history.reduce((sum, h) => sum + h.rounds, 0);
+    const totalDuration = data.reduce((sum, h) => sum + h.duration, 0);
+    const totalCalories = data.reduce((sum, h) => sum + (h.calories || 0), 0);
+    const totalRounds = data.reduce((sum, h) => sum + h.rounds, 0);
 
     // Find most frequent workout
-    const workoutCounts = history.reduce((acc, h) => {
+    const workoutCounts = data.reduce((acc, h) => {
       acc[h.workoutName] = (acc[h.workoutName] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -101,15 +169,83 @@ export default function HistoryScreen() {
       ([, a], [, b]) => b - a
     )[0]?.[0] || '';
 
+    // Workout distribution for pie chart
+    const workoutDistribution = Object.entries(workoutCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5) // Top 5 workouts
+      .map(([name, count]) => ({
+        name,
+        count,
+        color: ['#FF9800', '#4CAF50', '#2196F3', '#FFC107', '#9C27B0'][
+          Object.keys(workoutCounts).indexOf(name) % 5
+        ],
+        legendFontColor: '#FFFFFF',
+        legendFontSize: 12,
+      }));
+
+    // Find longest workout
+    const longestWorkout = data.reduce((max, h) => 
+      h.duration > (max?.duration || 0) ? h : max
+    , data[0]);
+
+    // Calculate streaks (consecutive days with workouts)
+    const sortedDates = [...data]
+      .sort((a, b) => b.completedAt - a.completedAt)
+      .map((h) => {
+        const d = new Date(h.completedAt);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+      });
+
+    const uniqueDates = [...new Set(sortedDates)];
+    
+    let currentStreak = 0;
+    let bestStreak = 0;
+    let tempStreak = 1;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+    const yesterdayTime = todayTime - 24 * 60 * 60 * 1000;
+
+    // Current streak
+    if (uniqueDates.length > 0) {
+      if (uniqueDates[0] === todayTime || uniqueDates[0] === yesterdayTime) {
+        currentStreak = 1;
+        for (let i = 1; i < uniqueDates.length; i++) {
+          if (uniqueDates[i] === uniqueDates[i - 1] - 24 * 60 * 60 * 1000) {
+            currentStreak++;
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    // Best streak
+    for (let i = 1; i < uniqueDates.length; i++) {
+      if (uniqueDates[i] === uniqueDates[i - 1] - 24 * 60 * 60 * 1000) {
+        tempStreak++;
+        bestStreak = Math.max(bestStreak, tempStreak);
+      } else {
+        tempStreak = 1;
+      }
+    }
+    bestStreak = Math.max(bestStreak, tempStreak, currentStreak);
+
     return {
-      totalWorkouts: history.length,
+      totalWorkouts: data.length,
       totalDuration,
       totalCalories,
-      avgDuration: Math.round(totalDuration / history.length),
+      avgDuration: Math.round(totalDuration / data.length),
       totalRounds,
       mostFrequentWorkout,
+      workoutDistribution,
+      longestWorkout,
+      currentStreak,
+      bestStreak,
     };
-  }, [history]);
+  }, [filteredHistory]);
 
   // Prepare chart data for last 7 days
   const chartData = useMemo(() => {
@@ -133,6 +269,33 @@ export default function HistoryScreen() {
     });
 
     return { labels, data: dailyWorkouts };
+  }, [history]);
+
+  // Progress chart data (last 30 days - duration trend)
+  const progressData = useMemo(() => {
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (29 - i));
+      date.setHours(0, 0, 0, 0);
+      return date.getTime();
+    });
+
+    const dailyDuration = last30Days.map((dayStart) => {
+      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+      const dayWorkouts = history.filter(
+        (h) => h.completedAt >= dayStart && h.completedAt < dayEnd
+      );
+      return dayWorkouts.reduce((sum, h) => sum + h.duration, 0) / 60; // in minutes
+    });
+
+    const labels = last30Days.map((day, i) => {
+      if (i % 5 === 0 || i === last30Days.length - 1) {
+        return new Date(day).getDate().toString();
+      }
+      return '';
+    });
+
+    return { labels, data: dailyDuration };
   }, [history]);
 
   // Calendar data - workouts per day this month
@@ -253,15 +416,53 @@ export default function HistoryScreen() {
         </View>
       </View>
 
+      {/* Streak Cards */}
+      {history.length > 0 && (
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <Ionicons name="flame-outline" size={32} color={colors.dark.primary} />
+            <Text style={styles.statCardValue}>{stats.currentStreak}</Text>
+            <Text style={styles.statCardLabel}>Current Streak</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="trophy-outline" size={32} color={colors.dark.warning} />
+            <Text style={styles.statCardValue}>{stats.bestStreak}</Text>
+            <Text style={styles.statCardLabel}>Best Streak</Text>
+          </View>
+        </View>
+      )}
+
       {/* Charts */}
       {history.length > 0 && (
         <>
+          {/* Workout Distribution Pie Chart */}
+          {stats.workoutDistribution.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Workout Distribution</Text>
+              <View style={styles.chartContainer}>
+                <PieChart
+                  data={stats.workoutDistribution}
+                  width={CHART_WIDTH}
+                  height={220}
+                  chartConfig={{
+                    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                  }}
+                  accessor="count"
+                  backgroundColor="transparent"
+                  paddingLeft="15"
+                  absolute
+                />
+              </View>
+            </>
+          )}
+
           <Text style={styles.sectionTitle}>Weekly Activity</Text>
           <View style={styles.chartContainer}>
             <BarChart
               data={{
                 labels: chartData.labels,
-                datasets: [{ data: chartData.data }],
+                datasets: [{ data: chartData.data.length > 0 ? chartData.data : [0] }],
               }}
               width={CHART_WIDTH}
               height={220}
@@ -282,10 +483,66 @@ export default function HistoryScreen() {
             />
           </View>
 
-          <Text style={styles.sectionTitle}>Most Frequent Workout</Text>
+          {/* Progress Line Chart */}
+          <Text style={styles.sectionTitle}>30-Day Progress (Minutes/Day)</Text>
+          <View style={styles.chartContainer}>
+            <LineChart
+              data={{
+                labels: progressData.labels,
+                datasets: [{ data: progressData.data.length > 0 ? progressData.data : [0] }],
+              }}
+              width={CHART_WIDTH}
+              height={220}
+              yAxisLabel=""
+              yAxisSuffix="m"
+              chartConfig={{
+                backgroundColor: colors.dark.surface,
+                backgroundGradientFrom: colors.dark.surface,
+                backgroundGradientTo: colors.dark.surface,
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                style: { borderRadius: 16 },
+                propsForDots: {
+                  r: '4',
+                  strokeWidth: '2',
+                  stroke: colors.dark.success,
+                },
+              }}
+              bezier
+              style={styles.chart}
+            />
+          </View>
+
+          {/* Insights */}
+          <Text style={styles.sectionTitle}>Insights</Text>
+          
           <View style={styles.infoCard}>
             <Ionicons name="trophy" size={24} color={colors.dark.warning} />
-            <Text style={styles.infoCardText}>{stats.mostFrequentWorkout || 'N/A'}</Text>
+            <View style={styles.infoCardContent}>
+              <Text style={styles.infoCardLabel}>Most Frequent Workout</Text>
+              <Text style={styles.infoCardText}>{stats.mostFrequentWorkout || 'N/A'}</Text>
+            </View>
+          </View>
+
+          {stats.longestWorkout && (
+            <View style={styles.infoCard}>
+              <Ionicons name="medal" size={24} color={colors.dark.primary} />
+              <View style={styles.infoCardContent}>
+                <Text style={styles.infoCardLabel}>Longest Workout</Text>
+                <Text style={styles.infoCardText}>
+                  {stats.longestWorkout.workoutName} - {formatTime(stats.longestWorkout.duration)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.infoCard}>
+            <Ionicons name="repeat" size={24} color={colors.dark.info} />
+            <View style={styles.infoCardContent}>
+              <Text style={styles.infoCardLabel}>Total Rounds Completed</Text>
+              <Text style={styles.infoCardText}>{stats.totalRounds} rounds</Text>
+            </View>
           </View>
         </>
       )}
@@ -371,15 +628,53 @@ export default function HistoryScreen() {
     );
   };
 
+  const renderDateFilter = () => (
+    <View style={styles.filterContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {(['all', 'week', 'month', 'year'] as DateFilterType[]).map((filter) => (
+          <TouchableOpacity
+            key={filter}
+            style={[styles.filterButton, dateFilter === filter && styles.filterButtonActive]}
+            onPress={() => setDateFilter(filter)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.filterButtonText, dateFilter === filter && styles.filterButtonTextActive]}>
+              {filter === 'all' ? 'All Time' : filter === 'week' ? 'This Week' : filter === 'month' ? 'This Month' : 'This Year'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <View style={styles.filterActions}>
+        <TouchableOpacity onPress={handleExportHistory} style={styles.actionIconButton}>
+          <Ionicons name="share-outline" size={22} color={colors.dark.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleClearAllHistory} style={styles.actionIconButton}>
+          <Ionicons name="trash-outline" size={22} color={colors.dark.danger} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const renderHistorySection = () => (
-    <FlatList
-      data={history}
-      renderItem={renderHistoryItem}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.historyList}
-      showsVerticalScrollIndicator={false}
-      ListEmptyComponent={renderEmptyState()}
-    />
+    <View style={styles.sectionContainer}>
+      {renderDateFilter()}
+      <FlatList
+        data={filteredHistory}
+        renderItem={renderHistoryItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.historyList}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="filter-outline" size={64} color={colors.dark.textSecondary} />
+            <Text style={styles.emptyTitle}>No Workouts Found</Text>
+            <Text style={styles.emptyText}>
+              Try adjusting your filter or start a new workout
+            </Text>
+          </View>
+        }
+      />
+    </View>
   );
 
   return (
@@ -614,12 +909,67 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.dark.border,
+    marginBottom: spacing.md,
+  },
+  infoCardContent: {
+    flex: 1,
+  },
+  infoCardLabel: {
+    fontSize: fontSizes.sm,
+    color: colors.dark.textSecondary,
+    marginBottom: spacing.xs,
   },
   infoCardText: {
     fontSize: fontSizes.md,
     fontWeight: '600',
     color: colors.dark.text,
-    flex: 1,
+  },
+
+  // Filter Section
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.dark.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.dark.border,
+  },
+  filterButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    marginRight: spacing.sm,
+    backgroundColor: colors.dark.background,
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+  },
+  filterButtonActive: {
+    backgroundColor: colors.dark.primary,
+    borderColor: colors.dark.primary,
+  },
+  filterButtonText: {
+    fontSize: fontSizes.sm,
+    color: colors.dark.textSecondary,
+    fontWeight: '600',
+  },
+  filterButtonTextActive: {
+    color: colors.dark.background,
+  },
+  filterActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.dark.background,
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Calendar Section
