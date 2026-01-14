@@ -92,8 +92,8 @@ const styles = StyleSheet.create({
         backgroundColor: colors.dark.background,
     },
     header: {
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
         borderBottomWidth: 1,
         borderBottomColor: colors.dark.border,
     },

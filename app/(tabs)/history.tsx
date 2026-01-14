@@ -8,6 +8,7 @@ import {
     FlatList,
     Dimensions,
     Alert,
+    RefreshControl,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -19,7 +20,7 @@ import { WorkoutHistory } from '@/libs/types/workout'
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
-const CHART_WIDTH = SCREEN_WIDTH - spacing.sm * 2
+const CHART_WIDTH = SCREEN_WIDTH - spacing.sm * 4 - spacing.md // Account for all padding and margins
 
 type TabType = 'History' | 'Stats' | 'Calendar'
 type DateFilterType = 'all' | 'week' | 'month' | 'year'
@@ -27,6 +28,7 @@ type DateFilterType = 'all' | 'week' | 'month' | 'year'
 export default function HistoryScreen() {
     const [history, setHistory] = useState<WorkoutHistory[]>([])
     const [loading, setLoading] = useState(true)
+    const [refreshing, setRefreshing] = useState(false)
     const [selectedTab, setSelectedTab] = useState<TabType>('History')
     const [dateFilter, setDateFilter] = useState<DateFilterType>('all')
     const [selectedMonth, setSelectedMonth] = useState<Date>(new Date())
@@ -53,6 +55,18 @@ export default function HistoryScreen() {
             console.error('Failed to load history:', error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const onRefresh = async () => {
+        setRefreshing(true)
+        try {
+            const data = await storageService.loadWorkoutHistory()
+            setHistory(data)
+        } catch (error) {
+            console.error('Failed to refresh history:', error)
+        } finally {
+            setRefreshing(false)
         }
     }
 
@@ -360,7 +374,7 @@ export default function HistoryScreen() {
             </Text>
             <TouchableOpacity
                 style={styles.startButton}
-                onPress={() => router.replace('/(tabs)/')}
+                onPress={() => router.replace('/(tabs)')}
                 activeOpacity={0.7}
             >
                 <Text style={styles.startButtonText}>Start a Workout</Text>
@@ -440,24 +454,32 @@ export default function HistoryScreen() {
             style={styles.sectionContainer}
             contentContainerStyle={styles.sectionContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={colors.dark.primary}
+                    colors={[colors.dark.primary]}
+                />
+            }
         >
-            {/* Stats Cards */}
+            {/* Stats Cards - 2x3 Grid */}
             <View style={styles.statsGrid}>
                 <View style={styles.statCard}>
                     <Ionicons
                         name="fitness"
-                        size={32}
+                        size={28}
                         color={colors.dark.primary}
                     />
                     <Text style={styles.statCardValue}>
                         {stats.totalWorkouts}
                     </Text>
-                    <Text style={styles.statCardLabel}>Total Workouts</Text>
+                    <Text style={styles.statCardLabel}>Workouts</Text>
                 </View>
                 <View style={styles.statCard}>
                     <Ionicons
                         name="time"
-                        size={32}
+                        size={28}
                         color={colors.dark.success}
                     />
                     <Text style={styles.statCardValue}>
@@ -468,43 +490,46 @@ export default function HistoryScreen() {
                 <View style={styles.statCard}>
                     <Ionicons
                         name="speedometer"
-                        size={32}
+                        size={28}
                         color={colors.dark.info}
                     />
                     <Text style={styles.statCardValue}>
                         {formatTime(stats.avgDuration)}
                     </Text>
-                    <Text style={styles.statCardLabel}>Avg Duration</Text>
+                    <Text style={styles.statCardLabel}>Avg Time</Text>
+                </View>
+                <View style={styles.statCard}>
+                    <Ionicons
+                        name="flame-outline"
+                        size={28}
+                        color={colors.dark.primary}
+                    />
+                    <Text style={styles.statCardValue}>
+                        {stats.currentStreak}
+                    </Text>
+                    <Text style={styles.statCardLabel}>Current Streak</Text>
+                </View>
+                <View style={styles.statCard}>
+                    <Ionicons
+                        name="trophy-outline"
+                        size={28}
+                        color={colors.dark.warning}
+                    />
+                    <Text style={styles.statCardValue}>{stats.bestStreak}</Text>
+                    <Text style={styles.statCardLabel}>Best Streak</Text>
+                </View>
+                <View style={styles.statCard}>
+                    <Ionicons
+                        name="repeat"
+                        size={28}
+                        color={colors.dark.accent}
+                    />
+                    <Text style={styles.statCardValue}>
+                        {stats.totalRounds}
+                    </Text>
+                    <Text style={styles.statCardLabel}>Total Rounds</Text>
                 </View>
             </View>
-
-            {/* Streak Cards */}
-            {history.length > 0 && (
-                <View style={styles.statsGrid}>
-                    <View style={styles.statCard}>
-                        <Ionicons
-                            name="flame-outline"
-                            size={32}
-                            color={colors.dark.primary}
-                        />
-                        <Text style={styles.statCardValue}>
-                            {stats.currentStreak}
-                        </Text>
-                        <Text style={styles.statCardLabel}>Current Streak</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Ionicons
-                            name="trophy-outline"
-                            size={32}
-                            color={colors.dark.warning}
-                        />
-                        <Text style={styles.statCardValue}>
-                            {stats.bestStreak}
-                        </Text>
-                        <Text style={styles.statCardLabel}>Best Streak</Text>
-                    </View>
-                </View>
-            )}
 
             {/* Charts */}
             {history.length > 0 && (
@@ -516,58 +541,62 @@ export default function HistoryScreen() {
                                 Workout Distribution
                             </Text>
                             <View style={styles.chartContainer}>
-                                <PieChart
-                                    data={stats.workoutDistribution}
-                                    width={CHART_WIDTH}
-                                    height={220}
-                                    chartConfig={{
-                                        color: (opacity = 1) =>
-                                            `rgba(255, 255, 255, ${opacity})`,
-                                        labelColor: (opacity = 1) =>
-                                            `rgba(255, 255, 255, ${opacity})`,
-                                    }}
-                                    accessor="count"
-                                    backgroundColor="transparent"
-                                    paddingLeft="15"
-                                    absolute
-                                />
+                                <View style={styles.chartWrapper}>
+                                    <PieChart
+                                        data={stats.workoutDistribution}
+                                        width={CHART_WIDTH}
+                                        height={220}
+                                        chartConfig={{
+                                            color: (opacity = 1) =>
+                                                `rgba(255, 255, 255, ${opacity})`,
+                                            labelColor: (opacity = 1) =>
+                                                `rgba(255, 255, 255, ${opacity})`,
+                                        }}
+                                        accessor="count"
+                                        backgroundColor="transparent"
+                                        paddingLeft="15"
+                                        absolute
+                                    />
+                                </View>
                             </View>
                         </>
                     )}
 
                     <Text style={styles.sectionTitle}>Weekly Activity</Text>
                     <View style={styles.chartContainer}>
-                        <BarChart
-                            data={{
-                                labels: chartData.labels,
-                                datasets: [
-                                    {
-                                        data:
-                                            chartData.data.length > 0
-                                                ? chartData.data
-                                                : [0],
-                                    },
-                                ],
-                            }}
-                            width={CHART_WIDTH}
-                            height={220}
-                            yAxisLabel=""
-                            yAxisSuffix=""
-                            chartConfig={{
-                                backgroundColor: colors.dark.surface,
-                                backgroundGradientFrom: colors.dark.surface,
-                                backgroundGradientTo: colors.dark.surface,
-                                decimalPlaces: 0,
-                                color: (opacity = 1) =>
-                                    `rgba(138, 180, 248, ${opacity})`,
-                                labelColor: (opacity = 1) =>
-                                    `rgba(255, 255, 255, ${opacity})`,
-                                style: { borderRadius: 16 },
-                                barPercentage: 0.6,
-                            }}
-                            style={styles.chart}
-                            fromZero
-                        />
+                        <View style={styles.chartWrapper}>
+                            <BarChart
+                                data={{
+                                    labels: chartData.labels,
+                                    datasets: [
+                                        {
+                                            data:
+                                                chartData.data.length > 0
+                                                    ? chartData.data
+                                                    : [0],
+                                        },
+                                    ],
+                                }}
+                                width={CHART_WIDTH}
+                                height={220}
+                                yAxisLabel=""
+                                yAxisSuffix=""
+                                chartConfig={{
+                                    backgroundColor: colors.dark.surface,
+                                    backgroundGradientFrom: colors.dark.surface,
+                                    backgroundGradientTo: colors.dark.surface,
+                                    decimalPlaces: 0,
+                                    color: (opacity = 1) =>
+                                        `rgba(138, 180, 248, ${opacity})`,
+                                    labelColor: (opacity = 1) =>
+                                        `rgba(255, 255, 255, ${opacity})`,
+                                    style: { borderRadius: 16 },
+                                    barPercentage: 0.6,
+                                }}
+                                style={styles.chart}
+                                fromZero
+                            />
+                        </View>
                     </View>
 
                     {/* Progress Line Chart */}
@@ -575,41 +604,43 @@ export default function HistoryScreen() {
                         30-Day Progress (Minutes/Day)
                     </Text>
                     <View style={styles.chartContainer}>
-                        <LineChart
-                            data={{
-                                labels: progressData.labels,
-                                datasets: [
-                                    {
-                                        data:
-                                            progressData.data.length > 0
-                                                ? progressData.data
-                                                : [0],
+                        <View style={styles.chartWrapper}>
+                            <LineChart
+                                data={{
+                                    labels: progressData.labels,
+                                    datasets: [
+                                        {
+                                            data:
+                                                progressData.data.length > 0
+                                                    ? progressData.data
+                                                    : [0],
+                                        },
+                                    ],
+                                }}
+                                width={CHART_WIDTH}
+                                height={220}
+                                yAxisLabel=""
+                                yAxisSuffix="m"
+                                chartConfig={{
+                                    backgroundColor: colors.dark.surface,
+                                    backgroundGradientFrom: colors.dark.surface,
+                                    backgroundGradientTo: colors.dark.surface,
+                                    decimalPlaces: 0,
+                                    color: (opacity = 1) =>
+                                        `rgba(76, 175, 80, ${opacity})`,
+                                    labelColor: (opacity = 1) =>
+                                        `rgba(255, 255, 255, ${opacity})`,
+                                    style: { borderRadius: 16 },
+                                    propsForDots: {
+                                        r: '4',
+                                        strokeWidth: '2',
+                                        stroke: colors.dark.success,
                                     },
-                                ],
-                            }}
-                            width={CHART_WIDTH}
-                            height={220}
-                            yAxisLabel=""
-                            yAxisSuffix="m"
-                            chartConfig={{
-                                backgroundColor: colors.dark.surface,
-                                backgroundGradientFrom: colors.dark.surface,
-                                backgroundGradientTo: colors.dark.surface,
-                                decimalPlaces: 0,
-                                color: (opacity = 1) =>
-                                    `rgba(76, 175, 80, ${opacity})`,
-                                labelColor: (opacity = 1) =>
-                                    `rgba(255, 255, 255, ${opacity})`,
-                                style: { borderRadius: 16 },
-                                propsForDots: {
-                                    r: '4',
-                                    strokeWidth: '2',
-                                    stroke: colors.dark.success,
-                                },
-                            }}
-                            bezier
-                            style={styles.chart}
-                        />
+                                }}
+                                bezier
+                                style={styles.chart}
+                            />
+                        </View>
                     </View>
 
                     {/* Insights */}
@@ -649,22 +680,6 @@ export default function HistoryScreen() {
                             </View>
                         </View>
                     )}
-
-                    <View style={styles.infoCard}>
-                        <Ionicons
-                            name="repeat"
-                            size={24}
-                            color={colors.dark.info}
-                        />
-                        <View style={styles.infoCardContent}>
-                            <Text style={styles.infoCardLabel}>
-                                Total Rounds Completed
-                            </Text>
-                            <Text style={styles.infoCardText}>
-                                {stats.totalRounds} rounds
-                            </Text>
-                        </View>
-                    </View>
                 </>
             )}
         </ScrollView>
@@ -672,10 +687,10 @@ export default function HistoryScreen() {
 
     const renderCalendarSection = () => {
         const now = new Date()
-        const monthName = selectedMonth.toLocaleDateString('en-US', {
+        const monthName = selectedMonth?.toLocaleDateString('en-US', {
             month: 'long',
             year: 'numeric',
-        })
+        }) || ''
         const firstDayOfMonth = new Date(
             selectedMonth.getFullYear(),
             selectedMonth.getMonth(),
@@ -690,6 +705,14 @@ export default function HistoryScreen() {
                 style={styles.sectionContainer}
                 contentContainerStyle={styles.sectionContent}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={colors.dark.primary}
+                        colors={[colors.dark.primary]}
+                    />
+                }
             >
                 {/* Month Navigation */}
                 <View style={styles.calendarHeader}>
@@ -908,9 +931,9 @@ export default function HistoryScreen() {
                                     No Workout
                                 </Text>
                                 <Text style={styles.noWorkoutText}>
-                                    {selectedMonth.toLocaleDateString('en-US', {
+                                    {selectedMonth ? selectedMonth.toLocaleDateString('en-US', {
                                         month: 'long',
-                                    })}{' '}
+                                    }) : 'Month'}{' '}
                                     {selectedDay} - Rest Day
                                 </Text>
                             </View>
@@ -923,9 +946,9 @@ export default function HistoryScreen() {
                         <View style={styles.selectedDayDetails}>
                             <View style={styles.selectedDayHeader}>
                                 <Text style={styles.selectedDayTitle}>
-                                    {selectedMonth.toLocaleDateString('en-US', {
+                                    {selectedMonth ? selectedMonth.toLocaleDateString('en-US', {
                                         month: 'long',
-                                    })}{' '}
+                                    }) : 'Month'}{' '}
                                     {selectedDay}
                                 </Text>
                                 <TouchableOpacity
@@ -1077,6 +1100,14 @@ export default function HistoryScreen() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.historyList}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={colors.dark.primary}
+                        colors={[colors.dark.primary]}
+                    />
+                }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons
@@ -1136,8 +1167,8 @@ const styles = StyleSheet.create({
         backgroundColor: colors.dark.background,
     },
     header: {
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
         borderBottomWidth: 1,
         borderBottomColor: colors.dark.border,
     },
@@ -1275,29 +1306,33 @@ const styles = StyleSheet.create({
     statsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
+        justifyContent: 'space-between',
         gap: spacing.xs,
-        marginBottom: spacing.sm,
+        marginBottom: spacing.md,
     },
     statCard: {
         backgroundColor: colors.dark.surface,
         borderRadius: 10,
         padding: spacing.sm,
-        width: (SCREEN_WIDTH - spacing.sm * 2 - spacing.xs) / 2,
+        width: (SCREEN_WIDTH - spacing.sm * 2 - spacing.xs * 2) / 3,
         alignItems: 'center',
+        justifyContent: 'center',
         borderWidth: 1,
         borderColor: colors.dark.border,
+        minHeight: 90,
     },
     statCardValue: {
-        fontSize: fontSizes.xl,
+        fontSize: fontSizes.lg,
         fontWeight: 'bold',
         color: colors.dark.text,
-        marginTop: spacing.sm,
+        marginTop: spacing.xs,
+        marginBottom: spacing.xs,
     },
     statCardLabel: {
-        fontSize: fontSizes.sm,
+        fontSize: fontSizes.xs,
         color: colors.dark.textSecondary,
-        marginTop: spacing.xs,
         textAlign: 'center',
+        lineHeight: 14,
     },
     sectionTitle: {
         fontSize: fontSizes.lg,
@@ -1313,9 +1348,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.dark.border,
         alignItems: 'center',
+        overflow: 'hidden',
+        marginBottom: spacing.sm,
     },
     chart: {
-        borderRadius: 16,
+        borderRadius: 12,
+        marginVertical: 0,
+    },
+    chartWrapper: {
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     infoCard: {
         backgroundColor: colors.dark.surface,

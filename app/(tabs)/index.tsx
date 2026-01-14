@@ -14,7 +14,11 @@ import { useFocusEffect } from '@react-navigation/native'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import Animated, { LinearTransition, FadeInDown, FadeOutUp } from 'react-native-reanimated'
+import Animated, {
+    LinearTransition,
+    FadeInDown,
+    FadeOutUp,
+} from 'react-native-reanimated'
 
 export default function HomeScreen() {
     const router = useRouter()
@@ -187,7 +191,7 @@ export default function HomeScreen() {
                     <View style={{ height: spacing.sm }} />
                 )}
                 renderItem={({ item, index }) => (
-                    <Animated.View 
+                    <Animated.View
                         key={item.id}
                         layout={LinearTransition.springify()}
                         entering={FadeInDown.delay(index * 50).duration(300)}
@@ -213,13 +217,15 @@ export default function HomeScreen() {
                         )}
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Workouts</Text>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 onPress={toggleWorkoutFilter}
                                 onPressIn={handlePressIn}
                                 style={styles.filterButton}
                             >
                                 <Text style={styles.seeAllText}>
-                                    {showAllWorkouts ? 'My Workouts' : 'See All'}
+                                    {showAllWorkouts
+                                        ? 'My Workouts'
+                                        : 'See All'}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -267,13 +273,10 @@ const styles = StyleSheet.create({
         backgroundColor: colors.dark.background,
     },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         paddingHorizontal: spacing.sm,
-        paddingTop: spacing.md,
-        paddingBottom: spacing.lg,
-        backgroundColor: colors.dark.background,
+        paddingVertical: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.dark.border,
     },
     headerLeft: {
         flexDirection: 'row',
