@@ -40,3 +40,15 @@ export interface AlertType {
   WARNING: 'WARNING';
 }
 
+export interface WorkoutHistory {
+  id: string;
+  workoutId: string;
+  workoutName: string;
+  completedAt: number;
+  duration: number;
+  rounds: number;
+  workDuration: number;
+  restDuration: number;
+  calories?: number;
+}
+

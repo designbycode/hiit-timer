@@ -1,12 +1,13 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { TimerEngine } from '@/libs/services/timer/TimerEngine';
-import { Phase } from '@/libs/types/workout';
+import { Phase, WorkoutHistory } from '@/libs/types/workout';
 import { alertService } from '@/libs/services/alerts/AlertService';
 import { useAudio } from '@/libs/contexts/AudioContext';
 import { speechManager } from '@/libs/services/alerts/SpeechManager';
 import { useWorkoutStore } from '@/libs/store/workoutStore';
 import { useSettingsStore } from '@/libs/store/settingsStore';
 import { useAppState } from '@/libs/hooks/useAppState';
+import { storageService } from '@/libs/services/storage/StorageService';
 
 export function useTimer(workoutId: string | null, workoutMuted: boolean = false) {
   const engineRef = useRef<TimerEngine | null>(null);
@@ -123,6 +124,29 @@ export function useTimer(workoutId: string | null, workoutMuted: boolean = false
               voiceEnabled: getEffectiveVoiceEnabled(),
               phase: Phase.COMPLETE,
             });
+
+            // Save workout history
+            const workout = workoutRef.current;
+            if (workout) {
+              const timerState = useWorkoutStore.getState().timerState;
+              const actualDuration = timerState.startTime 
+                ? Math.floor((Date.now() - timerState.startTime - timerState.pausedDuration) / 1000)
+                : 0;
+              
+              const history: WorkoutHistory = {
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                workoutId: workout.id,
+                workoutName: workout.name,
+                completedAt: Date.now(),
+                duration: actualDuration,
+                rounds: workout.rounds,
+                workDuration: workout.workDuration,
+                restDuration: workout.restDuration,
+                calories: Math.round(actualDuration * 0.15), // Rough estimate: ~9 cal/min
+              };
+              
+              await storageService.saveWorkoutHistory(history);
+            }
           } catch (error) {
             console.error('Error triggering completion alert:', error);
             // Optionally handle the error, e.g., show a user-friendly message

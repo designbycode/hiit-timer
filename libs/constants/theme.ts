@@ -9,12 +9,16 @@ export const colors = {
         secondary: '#fec64a',
         accent: '#2E7CF6',
         text: '#FFFFFF',
+        textSecondary: '#9EA2A8',
         muted: '#9EA2A8',
         subtle: '#C9CAD1',
         border: '#27282B',
         divider: '#383A40',
         error: '#FF3B30',
+        danger: '#FF3B30',
         success: '#4CAF50',
+        warning: '#FFC107',
+        info: '#2196F3',
     },
     phase: {
         [Phase.COUNTDOWN]: '#FFC107', // Yellow

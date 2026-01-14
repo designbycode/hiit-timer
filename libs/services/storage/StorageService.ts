@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Workout } from '@/libs/types/workout';
+import { Workout, WorkoutHistory } from '@/libs/types/workout';
 
 const STORAGE_KEYS = {
   WORKOUTS: '@hiit_timer:workouts',
@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   TIMER_STATE: '@hiit_timer:timer_state',
   ONBOARDING: '@hiit_timer:onboarding_completed',
   WORKOUT_FILTER: '@hiit_timer:workout_filter',
+  WORKOUT_HISTORY: '@hiit_timer:workout_history',
 } as const;
 
 class StorageService {
@@ -184,6 +185,47 @@ class StorageService {
       await AsyncStorage.setItem(STORAGE_KEYS.WORKOUT_FILTER, showAll.toString());
     } catch (error) {
       console.error('Error setting workout filter:', error);
+    }
+  }
+
+  // Workout History
+  async saveWorkoutHistory(history: WorkoutHistory): Promise<void> {
+    try {
+      const historyList = await this.loadWorkoutHistory();
+      historyList.unshift(history); // Add to beginning (most recent first)
+      await AsyncStorage.setItem(STORAGE_KEYS.WORKOUT_HISTORY, JSON.stringify(historyList));
+    } catch (error) {
+      console.error('Error saving workout history:', error);
+      throw error;
+    }
+  }
+
+  async loadWorkoutHistory(): Promise<WorkoutHistory[]> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.WORKOUT_HISTORY);
+      return data ? JSON.parse(data) : [];
+    } catch (error) {
+      console.error('Error loading workout history:', error);
+      return [];
+    }
+  }
+
+  async deleteWorkoutHistory(id: string): Promise<void> {
+    try {
+      const history = await this.loadWorkoutHistory();
+      const filtered = history.filter((h) => h.id !== id);
+      await AsyncStorage.setItem(STORAGE_KEYS.WORKOUT_HISTORY, JSON.stringify(filtered));
+    } catch (error) {
+      console.error('Error deleting workout history:', error);
+      throw error;
+    }
+  }
+
+  async clearWorkoutHistory(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.WORKOUT_HISTORY);
+    } catch (error) {
+      console.error('Error clearing workout history:', error);
     }
   }
 }
