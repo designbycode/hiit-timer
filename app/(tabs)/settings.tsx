@@ -1,11 +1,10 @@
 import React, { useEffect } from 'react'
-import { View, StyleSheet, ScrollView } from 'react-native'
-import { Header } from '@/libs/components/Header'
+import { View, StyleSheet, ScrollView, Text } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useSettingsStore } from '@/libs/store/settingsStore'
 import { useButtonSound } from '@/libs/hooks/useButtonSound'
-import { colors, spacing } from '@/libs/constants/theme'
+import { colors, spacing, fontSizes } from '@/libs/constants/theme'
 import { Button } from '@/libs/components/Button'
 import { AlertsSection } from '@/libs/components/settings/AlertsSection'
 import { SupportSection } from '@/libs/components/settings/SupportSection'
@@ -39,12 +38,10 @@ export default function SettingsScreen() {
     const router = useRouter()
 
     return (
-        <SafeAreaView style={styles.container}>
-            <Header
-                title="Settings"
-                onBackPress={() => router.back()}
-                hideRightIcon
-            />
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Settings</Text>
+            </View>
             <ScrollView contentContainerStyle={styles.contentContainer}>
                 <AlertsSection
                     soundEnabled={soundEnabled}
@@ -93,6 +90,17 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.dark.background,
+    },
+    header: {
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.dark.border,
+    },
+    headerTitle: {
+        fontSize: fontSizes.xxl,
+        fontWeight: 'bold',
+        color: colors.dark.text,
     },
     contentContainer: {
         padding: spacing.md,

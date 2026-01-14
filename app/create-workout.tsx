@@ -341,7 +341,7 @@ export default function CreateWorkoutScreen() {
 
             await storageService.saveWorkout(workout)
             await storageService.flush()
-            router.replace('/')
+            router.replace('/(tabs)/')
         } catch (error) {
             console.error('Error saving workout:', error)
             showAlert('Error', 'Failed to save workout', [
@@ -383,7 +383,7 @@ export default function CreateWorkoutScreen() {
                         await storageService.deleteWorkout(id)
                         await storageService.flush()
                         setModalVisible(false)
-                        router.replace('/')
+                        router.replace('/(tabs)/')
                     },
                 },
             ]

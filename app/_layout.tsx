@@ -81,10 +81,21 @@ export default function RootLayout() {
                   contentStyle: { backgroundColor: colors.dark.background },
                 }}
               >
-                <Stack.Screen name="index" />
-                <Stack.Screen name="create-workout" />
-                <Stack.Screen name="settings" />
-                <Stack.Screen name="workout/[id]" />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen 
+                  name="create-workout" 
+                  options={{ 
+                    presentation: 'modal',
+                    animation: 'slide_from_bottom',
+                  }} 
+                />
+                <Stack.Screen 
+                  name="workout/[id]" 
+                  options={{ 
+                    presentation: 'fullScreenModal',
+                    animation: 'fade',
+                  }} 
+                />
               </Stack>
             </View>
           )}

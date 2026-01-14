@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import Animated, { LinearTransition, FadeInDown, FadeOutUp } from 'react-native-reanimated'
 
 export default function HomeScreen() {
@@ -165,12 +166,8 @@ export default function HomeScreen() {
         router.push('/create-workout')
     }, [router])
 
-    const handleSettings = useCallback(() => {
-        router.push('/settings')
-    }, [router])
-
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <View style={styles.iconContainer}>
@@ -181,17 +178,6 @@ export default function HomeScreen() {
                     </View>
                     <Text style={styles.title}>HIIT Timer</Text>
                 </View>
-                <TouchableOpacity
-                    onPress={handleSettings}
-                    onPressIn={handlePressIn}
-                    style={styles.settingsButton}
-                >
-                    <Ionicons
-                        name="settings-outline"
-                        size={24}
-                        color="#999999"
-                    />
-                </TouchableOpacity>
             </View>
 
             <Animated.FlatList
@@ -271,7 +257,7 @@ export default function HomeScreen() {
                     </View>
                 </View>
             )}
-        </View>
+        </SafeAreaView>
     )
 }
 
@@ -285,7 +271,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: spacing.sm,
-        paddingTop: 60,
+        paddingTop: spacing.md,
         paddingBottom: spacing.lg,
         backgroundColor: colors.dark.background,
     },
@@ -305,9 +291,6 @@ const styles = StyleSheet.create({
         fontSize: fontSizes['2xl'],
         fontWeight: '700',
         color: colors.dark.text,
-    },
-    settingsButton: {
-        padding: spacing.sm,
     },
     scrollView: {
         flex: 1,
