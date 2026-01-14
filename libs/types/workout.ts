@@ -49,6 +49,5 @@ export interface WorkoutHistory {
   rounds: number;
   workDuration: number;
   restDuration: number;
-  calories?: number;
 }
 

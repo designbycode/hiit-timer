@@ -92,22 +92,22 @@ const styles = StyleSheet.create({
         backgroundColor: colors.dark.background,
     },
     header: {
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.sm,
         borderBottomWidth: 1,
         borderBottomColor: colors.dark.border,
     },
     headerTitle: {
-        fontSize: fontSizes.xxl,
+        fontSize: fontSizes['2xl'],
         fontWeight: 'bold',
         color: colors.dark.text,
     },
     contentContainer: {
-        padding: spacing.md,
-        gap: spacing.md,
+        padding: spacing.sm,
+        gap: spacing.sm,
     },
     footerActions: {
-        marginTop: spacing.lg,
-        marginBottom: spacing.xl,
+        marginTop: spacing.sm,
+        marginBottom: spacing.md,
     },
 })

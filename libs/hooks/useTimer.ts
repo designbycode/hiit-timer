@@ -142,7 +142,6 @@ export function useTimer(workoutId: string | null, workoutMuted: boolean = false
                 rounds: workout.rounds,
                 workDuration: workout.workDuration,
                 restDuration: workout.restDuration,
-                calories: Math.round(actualDuration * 0.15), // Rough estimate: ~9 cal/min
               };
               
               await storageService.saveWorkoutHistory(history);
