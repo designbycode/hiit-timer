@@ -171,7 +171,7 @@ export default function HomeScreen() {
     }, [router])
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <View style={styles.iconContainer}>

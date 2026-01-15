@@ -186,8 +186,6 @@ export class TimerEngine {
       currentRound,
       timeRemaining: duration,
       totalTime: duration,
-      startTime: Date.now(),
-      pausedDuration: 0,
     });
 
     this.config.onPhaseChange?.(nextPhase, currentRound);

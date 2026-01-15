@@ -522,7 +522,7 @@ export default function WorkoutScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             <StatusBar barStyle="light-content" backgroundColor="#000" />
 
             {/* Completion Bottom Sheet */}
@@ -583,7 +583,7 @@ export default function WorkoutScreen() {
             <Header
                 title="ACTIVE WORKOUT"
                 onBackPress={handleStop}
-                onRightPress={handleEditWorkout}
+                onRightPress={currentWorkout.isPreset ? undefined : handleEditWorkout}
                 rightIconName="create-outline"
                 hideRightIcon={currentWorkout.isPreset}
             />

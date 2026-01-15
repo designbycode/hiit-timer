@@ -5,6 +5,8 @@ interface WorkoutState {
   currentWorkout: Workout | null;
   timerState: TimerState;
   isActive: boolean;
+  pauseCount: number;
+  skipCount: number;
   setWorkout: (workout: Workout | null) => void;
   updateTimerState: (state: Partial<TimerState>) => void;
   resetTimer: () => void;
@@ -32,9 +34,11 @@ export const useWorkoutStore = create<WorkoutState>((set) => ({
   currentWorkout: null,
   timerState: initialTimerState,
   isActive: false,
+  pauseCount: 0,
+  skipCount: 0,
 
   setWorkout: (workout) => {
-    set({ currentWorkout: workout, isActive: workout !== null });
+    set({ currentWorkout: workout, isActive: workout !== null, pauseCount: 0, skipCount: 0 });
   },
 
   updateTimerState: (updates) => {
@@ -66,6 +70,7 @@ export const useWorkoutStore = create<WorkoutState>((set) => ({
         isPaused: true,
         lastPauseTime: Date.now(),
       },
+      pauseCount: state.pauseCount + 1,
     }));
   },
 
@@ -90,6 +95,8 @@ export const useWorkoutStore = create<WorkoutState>((set) => ({
     set({
       timerState: initialTimerState,
       isActive: false,
+      pauseCount: 0,
+      skipCount: 0,
     });
   },
 
@@ -99,6 +106,7 @@ export const useWorkoutStore = create<WorkoutState>((set) => ({
         ...state.timerState,
         timeRemaining: 0,
       },
+      skipCount: state.skipCount + 1,
     }));
   },
 

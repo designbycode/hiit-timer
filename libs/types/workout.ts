@@ -49,5 +49,7 @@ export interface WorkoutHistory {
   rounds: number;
   workDuration: number;
   restDuration: number;
+  pauseCount?: number;
+  skipCount?: number;
 }
 

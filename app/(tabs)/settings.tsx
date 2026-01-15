@@ -8,6 +8,7 @@ import { colors, spacing, fontSizes } from '@/libs/constants/theme'
 import { Button } from '@/libs/components/Button'
 import { AlertsSection } from '@/libs/components/settings/AlertsSection'
 import { SupportSection } from '@/libs/components/settings/SupportSection'
+import { Header } from '@/libs/components/Header'
 
 export default function SettingsScreen() {
     const {
@@ -38,10 +39,11 @@ export default function SettingsScreen() {
     const router = useRouter()
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Settings</Text>
-            </View>
+        <SafeAreaView style={styles.container} edges={['bottom']}>
+            <Header
+                title="Settings"
+                hideRightIcon
+            />
             <ScrollView contentContainerStyle={styles.contentContainer}>
                 <AlertsSection
                     soundEnabled={soundEnabled}
@@ -90,17 +92,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.dark.background,
-    },
-    header: {
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.dark.border,
-    },
-    headerTitle: {
-        fontSize: fontSizes['2xl'],
-        fontWeight: 'bold',
-        color: colors.dark.text,
     },
     contentContainer: {
         padding: spacing.sm,

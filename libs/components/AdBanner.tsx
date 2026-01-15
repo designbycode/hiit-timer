@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { View, StyleSheet, Platform, Text } from 'react-native'
 import { colors } from '@/libs/constants/theme'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 interface AdBannerProps {
     unitId?: string
@@ -11,6 +12,7 @@ interface AdBannerProps {
 export function AdBanner({ unitId, size, style }: AdBannerProps) {
     const [AdModule, setAdModule] = useState<any>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const insets = useSafeAreaInsets()
 
     useEffect(() => {
         // Dynamically import AdMob - will fail gracefully in Expo Go
@@ -34,7 +36,7 @@ export function AdBanner({ unitId, size, style }: AdBannerProps) {
     if (!AdModule || isLoading) {
         if (__DEV__) {
             return (
-                <View style={[styles.container, styles.placeholder, style]}>
+                <View style={[styles.container, styles.placeholder, { paddingBottom: 8 + insets.bottom }, style]}>
                     <Text style={styles.placeholderText}>
                         {isLoading
                             ? '⏳ Loading Ads...'
@@ -56,7 +58,7 @@ export function AdBanner({ unitId, size, style }: AdBannerProps) {
         console.warn('AdMob components not fully loaded')
         if (__DEV__) {
             return (
-                <View style={[styles.container, styles.placeholder, style]}>
+                <View style={[styles.container, styles.placeholder, { paddingBottom: 8 + insets.bottom }, style]}>
                     <Text style={styles.placeholderText}>
                         📱 Ad Banner (Components missing)
                     </Text>
@@ -85,7 +87,7 @@ export function AdBanner({ unitId, size, style }: AdBannerProps) {
     }
 
     return (
-        <View style={[styles.container, style]}>
+        <View style={[styles.container, { paddingBottom: 8 + insets.bottom }, style]}>
             <BannerAd
                 unitId={getAdUnitId()}
                 size={size || BannerAdSize.BANNER}

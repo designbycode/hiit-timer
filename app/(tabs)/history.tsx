@@ -9,15 +9,18 @@ import {
     Dimensions,
     Alert,
     RefreshControl,
+    Animated,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import { colors, spacing, fontSizes } from '@/libs/constants/theme'
 import { storageService } from '@/libs/services/storage/StorageService'
 import { Ionicons } from '@expo/vector-icons'
 import { formatTime } from '@/libs/utils/time'
 import { WorkoutHistory } from '@/libs/types/workout'
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit'
+import { Header } from '@/libs/components/Header'
+import { Swipeable } from 'react-native-gesture-handler'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const CHART_WIDTH = SCREEN_WIDTH - spacing.sm * 4 - spacing.md // Account for all padding and margins
@@ -39,13 +42,12 @@ export default function HistoryScreen() {
         loadHistory()
     }, [])
 
-    // Focus listener to reload data when screen comes into view
-    useEffect(() => {
-        const unsubscribe = router.subscribe?.(() => {
+    // Reload data when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
             loadHistory()
-        })
-        return unsubscribe
-    }, [router])
+        }, [])
+    )
 
     const loadHistory = async () => {
         try {
@@ -385,12 +387,30 @@ export default function HistoryScreen() {
     // Tab navigation data
     const tabs: TabType[] = ['History', 'Stats', 'Calendar']
 
+    const getTabIcon = (tab: TabType): keyof typeof Ionicons.glyphMap => {
+        switch (tab) {
+            case 'History':
+                return 'list'
+            case 'Stats':
+                return 'bar-chart'
+            case 'Calendar':
+                return 'calendar'
+            default:
+                return 'list'
+        }
+    }
+
     const renderTabItem = ({ item }: { item: TabType }) => (
         <TouchableOpacity
             style={[styles.tab, selectedTab === item && styles.tabActive]}
             onPress={() => setSelectedTab(item)}
             activeOpacity={0.7}
         >
+            <Ionicons
+                name={getTabIcon(item)}
+                size={20}
+                color={selectedTab === item ? colors.dark.primary : colors.dark.textSecondary}
+            />
             <Text
                 style={[
                     styles.tabText,
@@ -402,52 +422,126 @@ export default function HistoryScreen() {
         </TouchableOpacity>
     )
 
-    const renderHistoryItem = ({ item }: { item: WorkoutHistory }) => (
-        <View style={styles.historyCard}>
-            <View style={styles.historyHeader}>
-                <View style={styles.historyTitleContainer}>
+    const renderRightActions = (
+        progress: Animated.AnimatedInterpolation<number>,
+        dragX: Animated.AnimatedInterpolation<number>,
+        item: WorkoutHistory
+    ) => {
+        const scale = dragX.interpolate({
+            inputRange: [-100, 0],
+            outputRange: [1, 0],
+            extrapolate: 'clamp',
+        })
+
+        return (
+            <TouchableOpacity
+                style={styles.deleteAction}
+                onPress={() => handleDeleteHistory(item.id)}
+            >
+                <Animated.View style={{ transform: [{ scale }] }}>
+                    <Ionicons name="trash" size={24} color="#fff" />
+                </Animated.View>
+            </TouchableOpacity>
+        )
+    }
+
+    const renderHistoryItem = ({ item }: { item: WorkoutHistory }) => {
+        const hasPauses = (item.pauseCount ?? 0) > 0
+        const hasSkips = (item.skipCount ?? 0) > 0
+        const isPerfect = !hasPauses && !hasSkips
+        
+        // Format date nicely
+        const date = new Date(item.completedAt)
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+        return (
+            <Swipeable
+                renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
+                overshootRight={false}
+            >
+            <View style={styles.historyCard}>
+                {/* Title with achievement badge */}
+                <View style={styles.historyTitleRow}>
                     <Text style={styles.historyTitle}>{item.workoutName}</Text>
-                    <Text style={styles.historyDate}>
-                        {new Date(item.completedAt).toLocaleDateString()} at{' '}
-                        {new Date(item.completedAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                        })}
-                    </Text>
+                    {isPerfect && (
+                        <View style={styles.achievementBadge}>
+                            <Ionicons name="star" size={14} color={colors.dark.warning} />
+                        </View>
+                    )}
                 </View>
-                <TouchableOpacity
-                    onPress={() => handleDeleteHistory(item.id)}
-                    style={styles.deleteButton}
-                >
-                    <Ionicons
-                        name="trash-outline"
-                        size={20}
-                        color={colors.dark.danger}
-                    />
-                </TouchableOpacity>
+                
+                {/* Date and time */}
+                <Text style={styles.historyDate}>
+                    {dateStr} • {timeStr}
+                </Text>
+
+                {/* Main stats */}
+                <View style={styles.historyMainStats}>
+                    <View style={styles.mainStatItem}>
+                        <Ionicons
+                            name="time-outline"
+                            size={20}
+                            color={colors.dark.primary}
+                        />
+                        <Text style={styles.mainStatValue}>
+                            {item.duration ? formatTime(item.duration) : '00:00'}
+                        </Text>
+                    </View>
+                    <View style={styles.mainStatItem}>
+                        <Ionicons
+                            name="repeat-outline"
+                            size={20}
+                            color={colors.dark.primary}
+                        />
+                        <Text style={styles.mainStatValue}>
+                            {item.rounds || 0} rounds
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Achievement or interruptions */}
+                {isPerfect ? (
+                    <View style={styles.perfectBadge}>
+                        <Ionicons
+                            name="trophy"
+                            size={16}
+                            color={colors.dark.success}
+                        />
+                        <Text style={styles.perfectText}>Perfect Session</Text>
+                    </View>
+                ) : (
+                    <View style={styles.interruptionsRow}>
+                        {hasPauses && (
+                            <View style={styles.interruptionItem}>
+                                <Ionicons
+                                    name="pause-circle-outline"
+                                    size={16}
+                                    color={colors.dark.warning}
+                                />
+                                <Text style={styles.interruptionText}>
+                                    {item.pauseCount} {item.pauseCount === 1 ? 'pause' : 'pauses'}
+                                </Text>
+                            </View>
+                        )}
+                        {hasSkips && (
+                            <View style={styles.interruptionItem}>
+                                <Ionicons
+                                    name="play-skip-forward-outline"
+                                    size={16}
+                                    color={colors.dark.info}
+                                />
+                                <Text style={styles.interruptionText}>
+                                    {item.skipCount} {item.skipCount === 1 ? 'skip' : 'skips'}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                )}
             </View>
-            <View style={styles.historyStats}>
-                <View style={styles.statItem}>
-                    <Ionicons
-                        name="time"
-                        size={16}
-                        color={colors.dark.textSecondary}
-                    />
-                    <Text style={styles.statText}>
-                        {formatTime(item.duration)}
-                    </Text>
-                </View>
-                <View style={styles.statItem}>
-                    <Ionicons
-                        name="repeat"
-                        size={16}
-                        color={colors.dark.textSecondary}
-                    />
-                    <Text style={styles.statText}>{item.rounds} rounds</Text>
-                </View>
-            </View>
-        </View>
-    )
+            </Swipeable>
+        )
+    }
 
     const renderStatsSection = () => (
         <ScrollView
@@ -463,106 +557,75 @@ export default function HistoryScreen() {
                 />
             }
         >
-            {/* Stats Cards - 2x3 Grid */}
-            <View style={styles.statsGrid}>
-                <View style={styles.statCard}>
-                    <Ionicons
-                        name="fitness"
-                        size={28}
-                        color={colors.dark.primary}
-                    />
-                    <Text style={styles.statCardValue}>
+            {/* Overview Section */}
+            <Text style={styles.statsHeading}>Overview</Text>
+            <View style={styles.overviewGrid}>
+                {/* Total Workouts */}
+                <View style={styles.overviewCard}>
+                    <View style={[styles.iconCircle, { backgroundColor: 'rgba(255, 152, 0, 0.2)' }]}>
+                        <Ionicons
+                            name="fitness"
+                            size={24}
+                            color={colors.dark.primary}
+                        />
+                    </View>
+                    <Text style={styles.overviewValue}>
                         {stats.totalWorkouts}
                     </Text>
-                    <Text style={styles.statCardLabel}>Workouts</Text>
+                    <Text style={styles.overviewLabel}>Total Workouts</Text>
                 </View>
-                <View style={styles.statCard}>
-                    <Ionicons
-                        name="time"
-                        size={28}
-                        color={colors.dark.success}
-                    />
-                    <Text style={styles.statCardValue}>
-                        {formatTime(stats.totalDuration)}
-                    </Text>
-                    <Text style={styles.statCardLabel}>Total Time</Text>
-                </View>
-                <View style={styles.statCard}>
-                    <Ionicons
-                        name="speedometer"
-                        size={28}
-                        color={colors.dark.info}
-                    />
-                    <Text style={styles.statCardValue}>
-                        {formatTime(stats.avgDuration)}
-                    </Text>
-                    <Text style={styles.statCardLabel}>Avg Time</Text>
-                </View>
-                <View style={styles.statCard}>
-                    <Ionicons
-                        name="flame-outline"
-                        size={28}
-                        color={colors.dark.primary}
-                    />
-                    <Text style={styles.statCardValue}>
+
+                {/* Current Streak */}
+                <View style={styles.overviewCard}>
+                    <View style={[styles.iconCircle, { backgroundColor: 'rgba(255, 87, 34, 0.2)' }]}>
+                        <Ionicons
+                            name="flame"
+                            size={24}
+                            color="#FF5722"
+                        />
+                    </View>
+                    <Text style={styles.overviewValue}>
                         {stats.currentStreak}
                     </Text>
-                    <Text style={styles.statCardLabel}>Current Streak</Text>
+                    <Text style={styles.overviewLabel}>Current Streak</Text>
+                    <Text style={styles.overviewSubtext}>Best: {stats.bestStreak}</Text>
                 </View>
-                <View style={styles.statCard}>
-                    <Ionicons
-                        name="trophy-outline"
-                        size={28}
-                        color={colors.dark.warning}
-                    />
-                    <Text style={styles.statCardValue}>{stats.bestStreak}</Text>
-                    <Text style={styles.statCardLabel}>Best Streak</Text>
+
+                {/* Total Time */}
+                <View style={styles.overviewCard}>
+                    <View style={[styles.iconCircle, { backgroundColor: 'rgba(0, 188, 212, 0.2)' }]}>
+                        <Ionicons
+                            name="time"
+                            size={24}
+                            color="#00BCD4"
+                        />
+                    </View>
+                    <Text style={styles.overviewValue}>
+                        {formatTime(stats.totalDuration)}
+                    </Text>
+                    <Text style={styles.overviewLabel}>Total Time</Text>
                 </View>
-                <View style={styles.statCard}>
-                    <Ionicons
-                        name="repeat"
-                        size={28}
-                        color={colors.dark.accent}
-                    />
-                    <Text style={styles.statCardValue}>
+
+                {/* Total Rounds */}
+                <View style={styles.overviewCard}>
+                    <View style={[styles.iconCircle, { backgroundColor: 'rgba(96, 125, 139, 0.2)' }]}>
+                        <Ionicons
+                            name="repeat"
+                            size={24}
+                            color="#607D8B"
+                        />
+                    </View>
+                    <Text style={styles.overviewValue}>
                         {stats.totalRounds}
                     </Text>
-                    <Text style={styles.statCardLabel}>Total Rounds</Text>
+                    <Text style={styles.overviewLabel}>Total Rounds</Text>
                 </View>
             </View>
 
-            {/* Charts */}
+            {/* This Week Section */}
             {history.length > 0 && (
                 <>
-                    {/* Workout Distribution Pie Chart */}
-                    {stats.workoutDistribution.length > 0 && (
-                        <>
-                            <Text style={styles.sectionTitle}>
-                                Workout Distribution
-                            </Text>
-                            <View style={styles.chartContainer}>
-                                <View style={styles.chartWrapper}>
-                                    <PieChart
-                                        data={stats.workoutDistribution}
-                                        width={CHART_WIDTH}
-                                        height={220}
-                                        chartConfig={{
-                                            color: (opacity = 1) =>
-                                                `rgba(255, 255, 255, ${opacity})`,
-                                            labelColor: (opacity = 1) =>
-                                                `rgba(255, 255, 255, ${opacity})`,
-                                        }}
-                                        accessor="count"
-                                        backgroundColor="transparent"
-                                        paddingLeft="15"
-                                        absolute
-                                    />
-                                </View>
-                            </View>
-                        </>
-                    )}
-
-                    <Text style={styles.sectionTitle}>Weekly Activity</Text>
+                    <Text style={styles.statsHeading}>This Week</Text>
                     <View style={styles.chartContainer}>
                         <View style={styles.chartWrapper}>
                             <BarChart
@@ -587,99 +650,84 @@ export default function HistoryScreen() {
                                     backgroundGradientTo: colors.dark.surface,
                                     decimalPlaces: 0,
                                     color: (opacity = 1) =>
-                                        `rgba(138, 180, 248, ${opacity})`,
+                                        `rgba(255, 152, 0, ${opacity})`,
                                     labelColor: (opacity = 1) =>
                                         `rgba(255, 255, 255, ${opacity})`,
                                     style: { borderRadius: 16 },
-                                    barPercentage: 0.6,
+                                    barPercentage: 0.5,
                                 }}
                                 style={styles.chart}
                                 fromZero
                             />
                         </View>
+                        <Text style={styles.chartSubtext}>
+                            {chartData.data.reduce((a, b) => a + b, 0)} workout{chartData.data.reduce((a, b) => a + b, 0) !== 1 ? 's' : ''} this week
+                        </Text>
                     </View>
 
-                    {/* Progress Line Chart */}
-                    <Text style={styles.sectionTitle}>
-                        30-Day Progress (Minutes/Day)
-                    </Text>
-                    <View style={styles.chartContainer}>
-                        <View style={styles.chartWrapper}>
-                            <LineChart
-                                data={{
-                                    labels: progressData.labels,
-                                    datasets: [
-                                        {
-                                            data:
-                                                progressData.data.length > 0
-                                                    ? progressData.data
-                                                    : [0],
-                                        },
-                                    ],
-                                }}
-                                width={CHART_WIDTH}
-                                height={220}
-                                yAxisLabel=""
-                                yAxisSuffix="m"
-                                chartConfig={{
-                                    backgroundColor: colors.dark.surface,
-                                    backgroundGradientFrom: colors.dark.surface,
-                                    backgroundGradientTo: colors.dark.surface,
-                                    decimalPlaces: 0,
-                                    color: (opacity = 1) =>
-                                        `rgba(76, 175, 80, ${opacity})`,
-                                    labelColor: (opacity = 1) =>
-                                        `rgba(255, 255, 255, ${opacity})`,
-                                    style: { borderRadius: 16 },
-                                    propsForDots: {
-                                        r: '4',
-                                        strokeWidth: '2',
-                                        stroke: colors.dark.success,
-                                    },
-                                }}
-                                bezier
-                                style={styles.chart}
-                            />
+                    {/* Performance Section */}
+                    <Text style={styles.statsHeading}>Performance</Text>
+                    <View style={styles.performanceGrid}>
+                        {/* Avg Duration */}
+                        <View style={styles.performanceCard}>
+                            <View style={[styles.iconCircle, { backgroundColor: 'rgba(0, 188, 212, 0.2)' }]}>
+                                <Ionicons
+                                    name="speedometer"
+                                    size={24}
+                                    color="#00BCD4"
+                                />
+                            </View>
+                            <Text style={styles.performanceValue}>
+                                {formatTime(stats.avgDuration)}
+                            </Text>
+                            <Text style={styles.performanceLabel}>Avg Duration</Text>
+                        </View>
+
+                        {/* Longest */}
+                        <View style={styles.performanceCard}>
+                            <View style={[styles.iconCircle, { backgroundColor: 'rgba(255, 193, 7, 0.2)' }]}>
+                                <Ionicons
+                                    name="trophy"
+                                    size={24}
+                                    color="#FFC107"
+                                />
+                            </View>
+                            <Text style={styles.performanceValue}>
+                                {stats.longestWorkout ? formatTime(stats.longestWorkout.duration) : '00:00'}
+                            </Text>
+                            <Text style={styles.performanceLabel}>Longest</Text>
                         </View>
                     </View>
 
-                    {/* Insights */}
-                    <Text style={styles.sectionTitle}>Insights</Text>
-
-                    <View style={styles.infoCard}>
-                        <Ionicons
-                            name="trophy"
-                            size={24}
-                            color={colors.dark.warning}
-                        />
-                        <View style={styles.infoCardContent}>
-                            <Text style={styles.infoCardLabel}>
-                                Most Frequent Workout
+                    {/* More Stats Section */}
+                    <Text style={styles.statsHeading}>More Stats</Text>
+                    <View style={styles.moreStatsContainer}>
+                        {/* This Month */}
+                        <View style={styles.moreStatsRow}>
+                            <Text style={styles.moreStatsLabel}>This Month</Text>
+                            <Text style={styles.moreStatsValue}>
+                                {monthStats.totalWorkouts} workout{monthStats.totalWorkouts !== 1 ? 's' : ''}
                             </Text>
-                            <Text style={styles.infoCardText}>
+                        </View>
+
+                        {/* Favorite Workout */}
+                        <View style={styles.moreStatsRow}>
+                            <Text style={styles.moreStatsLabel}>Favorite Workout</Text>
+                            <Text style={styles.moreStatsValue}>
                                 {stats.mostFrequentWorkout || 'N/A'}
                             </Text>
                         </View>
-                    </View>
 
-                    {stats.longestWorkout && (
-                        <View style={styles.infoCard}>
-                            <Ionicons
-                                name="medal"
-                                size={24}
-                                color={colors.dark.primary}
-                            />
-                            <View style={styles.infoCardContent}>
-                                <Text style={styles.infoCardLabel}>
-                                    Longest Workout
-                                </Text>
-                                <Text style={styles.infoCardText}>
-                                    {stats.longestWorkout.workoutName} -{' '}
-                                    {formatTime(stats.longestWorkout.duration)}
+                        {/* Last Workout */}
+                        {history.length > 0 && (
+                            <View style={styles.moreStatsRow}>
+                                <Text style={styles.moreStatsLabel}>Last Workout</Text>
+                                <Text style={styles.moreStatsValue}>
+                                    {new Date(history[0].completedAt).toLocaleDateString()}
                                 </Text>
                             </View>
-                        </View>
-                    )}
+                        )}
+                    </View>
                 </>
             )}
         </ScrollView>
@@ -687,10 +735,11 @@ export default function HistoryScreen() {
 
     const renderCalendarSection = () => {
         const now = new Date()
-        const monthName = selectedMonth?.toLocaleDateString('en-US', {
-            month: 'long',
-            year: 'numeric',
-        }) || ''
+        const monthName =
+            selectedMonth?.toLocaleDateString('en-US', {
+                month: 'long',
+                year: 'numeric',
+            }) || ''
         const firstDayOfMonth = new Date(
             selectedMonth.getFullYear(),
             selectedMonth.getMonth(),
@@ -714,64 +763,42 @@ export default function HistoryScreen() {
                     />
                 }
             >
-                {/* Month Navigation */}
-                <View style={styles.calendarHeader}>
-                    <TouchableOpacity
-                        onPress={() => navigateMonth('prev')}
-                        style={styles.monthNavButton}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons
-                            name="chevron-back"
-                            size={24}
-                            color={colors.dark.text}
-                        />
-                    </TouchableOpacity>
+                {/* Calendar Container */}
+                <View style={styles.calendarMainContainer}>
+                    {/* Month Navigation */}
+                    <View style={styles.calendarHeader}>
+                        <TouchableOpacity
+                            onPress={() => navigateMonth('prev')}
+                            style={styles.monthNavButton}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons
+                                name="chevron-back"
+                                size={24}
+                                color={colors.dark.primary}
+                            />
+                        </TouchableOpacity>
 
-                    <TouchableOpacity onPress={goToToday} activeOpacity={0.7}>
-                        <Text style={styles.calendarMonth}>{monthName}</Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity onPress={goToToday} activeOpacity={0.7}>
+                            <Text style={styles.calendarMonth}>{monthName}</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        onPress={() => navigateMonth('next')}
-                        style={styles.monthNavButton}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons
-                            name="chevron-forward"
-                            size={24}
-                            color={colors.dark.text}
-                        />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Month Statistics Summary */}
-                <View style={styles.monthStatsContainer}>
-                    <View style={styles.monthStatItem}>
-                        <Text style={styles.monthStatValue}>
-                            {monthStats.totalWorkouts}
-                        </Text>
-                        <Text style={styles.monthStatLabel}>Workouts</Text>
+                        <TouchableOpacity
+                            onPress={() => navigateMonth('next')}
+                            style={styles.monthNavButton}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons
+                                name="chevron-forward"
+                                size={24}
+                                color={colors.dark.primary}
+                            />
+                        </TouchableOpacity>
                     </View>
-                    <View style={styles.monthStatItem}>
-                        <Text style={styles.monthStatValue}>
-                            {monthStats.activeDays}
-                        </Text>
-                        <Text style={styles.monthStatLabel}>Active Days</Text>
-                    </View>
-                    <View style={styles.monthStatItem}>
-                        <Text style={styles.monthStatValue}>
-                            {formatTime(monthStats.totalDuration)}
-                        </Text>
-                        <Text style={styles.monthStatLabel}>Total Time</Text>
-                    </View>
-                </View>
 
-                {/* Heat Map Calendar Grid */}
-                <View style={styles.calendarContainer}>
                     {/* Day headers */}
                     <View style={styles.calendarRow}>
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
                             (day, index) => (
                                 <View
                                     key={index}
@@ -785,7 +812,7 @@ export default function HistoryScreen() {
                         )}
                     </View>
 
-                    {/* Calendar days with colored dots */}
+                    {/* Calendar days grid */}
                     {Array.from({
                         length: Math.ceil(
                             (calendarData.length + firstDayOfMonth) / 7
@@ -813,26 +840,24 @@ export default function HistoryScreen() {
                                     return (
                                         <View
                                             key={dayIndex}
-                                            style={styles.calendarDay}
+                                            style={styles.calendarDayEmpty}
                                         />
                                     )
                                 }
 
-                                const dotColor = getDotColor(
-                                    dayData?.count || 0
-                                )
-                                const dotSize = getDotSize(dayData?.count || 0)
+                                const hasWorkouts = dayData && dayData.count > 0
+                                const dotColor = hasWorkouts
+                                    ? dayData.count === 1
+                                        ? colors.dark.primary
+                                        : dayData.count === 2
+                                          ? '#FFA500'
+                                          : '#FF6B6B'
+                                    : 'transparent'
 
                                 return (
                                     <TouchableOpacity
                                         key={dayIndex}
-                                        style={[
-                                            styles.calendarDaySimple,
-                                            isToday &&
-                                                styles.calendarDayTodayBorder,
-                                            isSelected &&
-                                                styles.calendarDaySelected,
-                                        ]}
+                                        style={styles.calendarDayCell}
                                         onPress={() =>
                                             setSelectedDay(
                                                 isSelected ? null : dayNumber
@@ -842,27 +867,17 @@ export default function HistoryScreen() {
                                     >
                                         <Text
                                             style={[
-                                                styles.calendarDayTextSimple,
-                                                isToday &&
-                                                    styles.calendarDayTextToday,
-                                                isSelected &&
-                                                    styles.calendarDayTextSelected,
+                                                styles.calendarDayText,
+                                                isToday && styles.calendarDayTextToday,
                                             ]}
                                         >
                                             {dayNumber}
                                         </Text>
-                                        {dayData && dayData.count > 0 && (
+                                        {hasWorkouts && (
                                             <View
                                                 style={[
-                                                    styles.workoutDot,
-                                                    {
-                                                        backgroundColor:
-                                                            dotColor,
-                                                        width: dotSize,
-                                                        height: dotSize,
-                                                        borderRadius:
-                                                            dotSize / 2,
-                                                    },
+                                                    styles.workoutIndicatorDot,
+                                                    { backgroundColor: dotColor },
                                                 ]}
                                             />
                                         )}
@@ -873,179 +888,82 @@ export default function HistoryScreen() {
                     ))}
                 </View>
 
-                {/* Dot Legend */}
-                <View style={styles.dotLegend}>
-                    <View style={styles.dotLegendItem}>
-                        <View
-                            style={[
-                                styles.legendDotExample,
-                                {
-                                    backgroundColor: colors.dark.info,
-                                    width: 6,
-                                    height: 6,
-                                },
-                            ]}
-                        />
-                        <Text style={styles.dotLegendText}>1 workout</Text>
+                {/* Legend */}
+                <View style={styles.calendarLegend}>
+                    <View style={styles.legendItem}>
+                        <View style={[styles.legendDot, { backgroundColor: colors.dark.primary }]} />
+                        <Text style={styles.legendText}>1 workout</Text>
                     </View>
-                    <View style={styles.dotLegendItem}>
-                        <View
-                            style={[
-                                styles.legendDotExample,
-                                {
-                                    backgroundColor: colors.dark.success,
-                                    width: 8,
-                                    height: 8,
-                                },
-                            ]}
-                        />
-                        <Text style={styles.dotLegendText}>2 workouts</Text>
+                    <View style={styles.legendItem}>
+                        <View style={[styles.legendDot, { backgroundColor: '#FFA500' }]} />
+                        <Text style={styles.legendText}>2 workouts</Text>
                     </View>
-                    <View style={styles.dotLegendItem}>
-                        <View
-                            style={[
-                                styles.legendDotExample,
-                                {
-                                    backgroundColor: colors.dark.primary,
-                                    width: 10,
-                                    height: 10,
-                                },
-                            ]}
-                        />
-                        <Text style={styles.dotLegendText}>3+ workouts</Text>
+                    <View style={styles.legendItem}>
+                        <View style={[styles.legendDot, { backgroundColor: '#FF6B6B' }]} />
+                        <Text style={styles.legendText}>3+ workouts</Text>
                     </View>
                 </View>
 
                 {/* Selected Day Details */}
                 {selectedDay && (
                     <>
-                        {calendarData.find((d) => d.day === selectedDay)
-                            ?.count === 0 && (
-                            <View style={styles.noWorkoutMessage}>
-                                <Ionicons
-                                    name="calendar-outline"
-                                    size={48}
-                                    color={colors.dark.textSecondary}
-                                />
-                                <Text style={styles.noWorkoutTitle}>
-                                    No Workout
-                                </Text>
-                                <Text style={styles.noWorkoutText}>
-                                    {selectedMonth ? selectedMonth.toLocaleDateString('en-US', {
+                        {calendarData.find((d) => d.day === selectedDay)?.count === 0 ? (
+                            <View style={styles.selectedDayCard}>
+                                <Text style={styles.selectedDayDateText}>
+                                    {selectedMonth?.toLocaleDateString('en-US', {
+                                        weekday: 'long',
                                         month: 'long',
-                                    }) : 'Month'}{' '}
-                                    {selectedDay} - Rest Day
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                    })}
                                 </Text>
+                                <View style={styles.noWorkoutContainer}>
+                                    <Ionicons
+                                        name="calendar-outline"
+                                        size={48}
+                                        color={colors.dark.textSecondary}
+                                    />
+                                    <Text style={styles.noWorkoutText}>
+                                        No workout on this day
+                                    </Text>
+                                </View>
+                            </View>
+                        ) : (
+                            <View style={styles.selectedDayCard}>
+                                <Text style={styles.selectedDayDateText}>
+                                    {selectedMonth?.toLocaleDateString('en-US', {
+                                        weekday: 'long',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                    })}
+                                </Text>
+                                <Text style={styles.selectedDaySubtext}>
+                                    {calendarData.find((d) => d.day === selectedDay)?.count} workout completed
+                                </Text>
+
+                                {calendarData
+                                    .find((d) => d.day === selectedDay)
+                                    ?.workouts.map((workout) => (
+                                        <View
+                                            key={workout.id}
+                                            style={styles.workoutDetailCard}
+                                        >
+                                            <Text style={styles.workoutDetailName}>
+                                                {workout.workoutName}
+                                            </Text>
+                                            <Text style={styles.workoutDetailTime}>
+                                                {new Date(workout.completedAt).toLocaleTimeString([], {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}
+                                            </Text>
+                                        </View>
+                                    ))}
                             </View>
                         )}
                     </>
                 )}
-                {selectedDay &&
-                    calendarData.find((d) => d.day === selectedDay)?.count >
-                        0 && (
-                        <View style={styles.selectedDayDetails}>
-                            <View style={styles.selectedDayHeader}>
-                                <Text style={styles.selectedDayTitle}>
-                                    {selectedMonth ? selectedMonth.toLocaleDateString('en-US', {
-                                        month: 'long',
-                                    }) : 'Month'}{' '}
-                                    {selectedDay}
-                                </Text>
-                                <TouchableOpacity
-                                    onPress={() => setSelectedDay(null)}
-                                >
-                                    <Ionicons
-                                        name="close"
-                                        size={24}
-                                        color={colors.dark.textSecondary}
-                                    />
-                                </TouchableOpacity>
-                            </View>
-
-                            {calendarData
-                                .find((d) => d.day === selectedDay)
-                                ?.workouts.map((workout, index) => (
-                                    <View
-                                        key={workout.id}
-                                        style={styles.selectedDayWorkout}
-                                    >
-                                        <View
-                                            style={
-                                                styles.selectedDayWorkoutHeader
-                                            }
-                                        >
-                                            <Ionicons
-                                                name="fitness"
-                                                size={20}
-                                                color={colors.dark.primary}
-                                            />
-                                            <Text
-                                                style={
-                                                    styles.selectedDayWorkoutName
-                                                }
-                                            >
-                                                {workout.workoutName}
-                                            </Text>
-                                        </View>
-                                        <View
-                                            style={
-                                                styles.selectedDayWorkoutStats
-                                            }
-                                        >
-                                            <View
-                                                style={
-                                                    styles.selectedDayWorkoutStat
-                                                }
-                                            >
-                                                <Ionicons
-                                                    name="time-outline"
-                                                    size={16}
-                                                    color={
-                                                        colors.dark
-                                                            .textSecondary
-                                                    }
-                                                />
-                                                <Text
-                                                    style={
-                                                        styles.selectedDayWorkoutStatText
-                                                    }
-                                                >
-                                                    {new Date(
-                                                        workout.completedAt
-                                                    ).toLocaleTimeString([], {
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
-                                                    })}
-                                                </Text>
-                                            </View>
-                                            <View
-                                                style={
-                                                    styles.selectedDayWorkoutStat
-                                                }
-                                            >
-                                                <Ionicons
-                                                    name="timer-outline"
-                                                    size={16}
-                                                    color={
-                                                        colors.dark
-                                                            .textSecondary
-                                                    }
-                                                />
-                                                <Text
-                                                    style={
-                                                        styles.selectedDayWorkoutStatText
-                                                    }
-                                                >
-                                                    {formatTime(
-                                                        workout.duration
-                                                    )}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                ))}
-                        </View>
-                    )}
             </ScrollView>
         )
     }
@@ -1126,10 +1044,11 @@ export default function HistoryScreen() {
     )
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Workout History</Text>
-            </View>
+        <SafeAreaView style={styles.container} edges={['bottom']}>
+            <Header
+                title="Workout History"
+                hideRightIcon
+            />
 
             {/* Custom Tab Navigation */}
             <View style={styles.tabNavigation}>
@@ -1166,17 +1085,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.dark.background,
     },
-    header: {
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.dark.border,
-    },
-    headerTitle: {
-        fontSize: fontSizes['2xl'],
-        fontWeight: 'bold',
-        color: colors.dark.text,
-    },
 
     // Tab Navigation
     tabNavigation: {
@@ -1188,6 +1096,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.sm,
     },
     tab: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
         paddingVertical: spacing.sm,
         paddingHorizontal: spacing.md,
         marginRight: spacing.xs,
@@ -1249,51 +1160,92 @@ const styles = StyleSheet.create({
 
     // History Section
     historyList: {
-        padding: spacing.sm,
+        padding: spacing.md,
     },
     historyCard: {
         backgroundColor: colors.dark.surface,
-        borderRadius: 12,
-        padding: spacing.sm,
-        marginBottom: spacing.sm,
+        borderRadius: 16,
+        padding: spacing.md,
+        marginBottom: spacing.md,
         borderWidth: 1,
         borderColor: colors.dark.border,
     },
-    historyHeader: {
+    historyTitleRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: spacing.sm,
-    },
-    historyTitleContainer: {
-        flex: 1,
-        marginRight: spacing.sm,
+        alignItems: 'center',
+        gap: spacing.xs,
+        marginBottom: spacing.xs,
     },
     historyTitle: {
-        fontSize: fontSizes.lg,
-        fontWeight: '600',
+        fontSize: fontSizes.xl,
+        fontWeight: 'bold',
         color: colors.dark.text,
-        marginBottom: spacing.xs,
+    },
+    achievementBadge: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 193, 7, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     historyDate: {
         fontSize: fontSizes.sm,
         color: colors.dark.textSecondary,
+        marginBottom: spacing.md,
     },
-    deleteButton: {
-        padding: spacing.xs,
-    },
-    historyStats: {
+    historyMainStats: {
         flexDirection: 'row',
+        gap: spacing.lg,
+        marginBottom: spacing.md,
+    },
+    mainStatItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    mainStatValue: {
+        fontSize: fontSizes.md,
+        fontWeight: '600',
+        color: colors.dark.text,
+    },
+    perfectBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        backgroundColor: 'rgba(76, 175, 80, 0.15)',
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+    },
+    perfectText: {
+        fontSize: fontSizes.sm,
+        fontWeight: '600',
+        color: colors.dark.success,
+    },
+    interruptionsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: spacing.md,
     },
-    statItem: {
+    interruptionItem: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.xs,
     },
-    statText: {
+    interruptionText: {
         fontSize: fontSizes.sm,
-        color: colors.dark.textSecondary,
+        color: colors.dark.muted,
+    },
+    deleteAction: {
+        backgroundColor: colors.dark.error + '90',
+        justifyContent: 'center',
+        alignItems: 'flex-end',
+        paddingHorizontal: spacing.lg,
+        marginBottom: spacing.md,
+        borderRadius: 16,
+        marginLeft: spacing.xs,
     },
 
     // Stats Section
@@ -1301,64 +1253,141 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     sectionContent: {
-        padding: spacing.sm,
+        padding: spacing.md,
     },
-    statsGrid: {
+    statsHeading: {
+        fontSize: fontSizes.lg,
+        fontWeight: 'bold',
+        color: colors.dark.text,
+        marginBottom: spacing.md,
+        marginTop: spacing.md,
+    },
+    
+    // Overview Grid (2x2)
+    overviewGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
-        gap: spacing.xs,
+        gap: spacing.sm,
         marginBottom: spacing.md,
     },
-    statCard: {
+    overviewCard: {
         backgroundColor: colors.dark.surface,
-        borderRadius: 10,
-        padding: spacing.sm,
-        width: (SCREEN_WIDTH - spacing.sm * 2 - spacing.xs * 2) / 3,
+        borderRadius: 16,
+        padding: spacing.md,
+        width: (SCREEN_WIDTH - spacing.md * 2 - spacing.sm) / 2,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: colors.dark.border,
-        minHeight: 90,
+        minHeight: 140,
     },
-    statCardValue: {
-        fontSize: fontSizes.lg,
+    iconCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    overviewValue: {
+        fontSize: fontSizes['3xl'],
         fontWeight: 'bold',
         color: colors.dark.text,
-        marginTop: spacing.xs,
         marginBottom: spacing.xs,
     },
-    statCardLabel: {
-        fontSize: fontSizes.xs,
+    overviewLabel: {
+        fontSize: fontSizes.sm,
         color: colors.dark.textSecondary,
         textAlign: 'center',
-        lineHeight: 14,
     },
-    sectionTitle: {
-        fontSize: fontSizes.lg,
+    overviewSubtext: {
+        fontSize: fontSizes.xs,
+        color: colors.dark.muted,
+        marginTop: spacing.xs,
+    },
+    
+    // Performance Grid (2 cards side by side)
+    performanceGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: spacing.sm,
+        marginBottom: spacing.md,
+    },
+    performanceCard: {
+        backgroundColor: colors.dark.surface,
+        borderRadius: 16,
+        padding: spacing.md,
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: colors.dark.border,
+        minHeight: 140,
+    },
+    performanceValue: {
+        fontSize: fontSizes['2xl'],
         fontWeight: 'bold',
         color: colors.dark.text,
-        marginTop: spacing.sm,
         marginBottom: spacing.xs,
+    },
+    performanceLabel: {
+        fontSize: fontSizes.sm,
+        color: colors.dark.textSecondary,
+        textAlign: 'center',
+    },
+    
+    // More Stats Section
+    moreStatsContainer: {
+        backgroundColor: colors.dark.surface,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.dark.border,
+        overflow: 'hidden',
+        marginBottom: spacing.md,
+    },
+    moreStatsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.dark.border,
+    },
+    moreStatsLabel: {
+        fontSize: fontSizes.md,
+        color: colors.dark.textSecondary,
+    },
+    moreStatsValue: {
+        fontSize: fontSizes.md,
+        fontWeight: '600',
+        color: colors.dark.text,
     },
     chartContainer: {
         backgroundColor: colors.dark.surface,
-        borderRadius: 12,
-        padding: spacing.sm,
+        borderRadius: 16,
+        padding: spacing.md,
         borderWidth: 1,
         borderColor: colors.dark.border,
         alignItems: 'center',
         overflow: 'hidden',
-        marginBottom: spacing.sm,
+        marginBottom: spacing.md,
     },
     chart: {
-        borderRadius: 12,
+        borderRadius: 16,
         marginVertical: 0,
     },
     chartWrapper: {
         width: '100%',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    chartSubtext: {
+        fontSize: fontSizes.sm,
+        color: colors.dark.textSecondary,
+        textAlign: 'center',
+        marginTop: spacing.sm,
     },
     infoCard: {
         backgroundColor: colors.dark.surface,
@@ -1418,106 +1447,60 @@ const styles = StyleSheet.create({
     },
 
     // Calendar Section
+    calendarMainContainer: {
+        backgroundColor: colors.dark.surface,
+        borderRadius: 16,
+        padding: spacing.md,
+        borderWidth: 1,
+        borderColor: colors.dark.border,
+        marginBottom: spacing.md,
+    },
     calendarHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: spacing.lg,
-        paddingHorizontal: spacing.sm,
     },
     monthNavButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.dark.surface,
-        borderWidth: 1,
-        borderColor: colors.dark.border,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
     },
     calendarMonth: {
-        fontSize: fontSizes.xl,
+        fontSize: fontSizes['2xl'],
         fontWeight: 'bold',
         color: colors.dark.text,
         textAlign: 'center',
     },
-
-    // Month Statistics
-    monthStatsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: colors.dark.surface,
-        borderRadius: 10,
-        padding: spacing.sm,
-        marginBottom: spacing.sm,
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-    },
-    monthStatItem: {
-        alignItems: 'center',
-    },
-    monthStatValue: {
-        fontSize: fontSizes.lg,
-        fontWeight: 'bold',
-        color: colors.dark.primary,
-        marginBottom: spacing.xs,
-    },
-    monthStatLabel: {
-        fontSize: fontSizes.xs,
-        color: colors.dark.textSecondary,
-    },
-
-    // Heat Map Calendar
-    calendarContainer: {
-        backgroundColor: colors.dark.surface,
-        borderRadius: 10,
-        padding: spacing.sm,
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-    },
     calendarRow: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'space-between',
         marginBottom: spacing.xs,
     },
     calendarDayHeader: {
-        width: (SCREEN_WIDTH - spacing.sm * 2 - spacing.sm * 2) / 7,
+        flex: 1,
         alignItems: 'center',
-        paddingVertical: spacing.xs,
+        paddingVertical: spacing.sm,
     },
     calendarDayHeaderText: {
         fontSize: fontSizes.sm,
-        fontWeight: '600',
+        fontWeight: '500',
         color: colors.dark.textSecondary,
     },
-    calendarDay: {
-        width: (SCREEN_WIDTH - spacing.sm * 2 - spacing.sm * 2) / 7,
+    calendarDayEmpty: {
+        flex: 1,
         aspectRatio: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 8,
-        position: 'relative',
     },
-    calendarDaySimple: {
-        width: (SCREEN_WIDTH - spacing.sm * 2 - spacing.sm * 2) / 7,
+    calendarDayCell: {
+        flex: 1,
         aspectRatio: 1,
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        borderRadius: 8,
-    },
-    calendarDayTodayBorder: {
-        borderWidth: 2,
-        borderColor: colors.dark.primary,
-    },
-    calendarDaySelected: {
-        backgroundColor: 'rgba(255, 152, 0, 0.15)',
     },
     calendarDayText: {
-        fontSize: fontSizes.sm,
-        color: colors.dark.text,
-    },
-    calendarDayTextSimple: {
         fontSize: fontSizes.md,
         color: colors.dark.text,
         fontWeight: '500',
@@ -1526,117 +1509,84 @@ const styles = StyleSheet.create({
         color: colors.dark.primary,
         fontWeight: 'bold',
     },
-    calendarDayTextSelected: {
-        fontWeight: 'bold',
-    },
-    workoutDot: {
+    workoutIndicatorDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
         position: 'absolute',
         bottom: 4,
     },
 
-    // Dot Legend
-    dotLegend: {
+    // Calendar Legend
+    calendarLegend: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-around',
-        marginTop: spacing.sm,
-        paddingHorizontal: spacing.sm,
-        backgroundColor: colors.dark.surface,
-        borderRadius: 10,
-        padding: spacing.sm,
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-    },
-    dotLegendItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    legendDotExample: {
-        borderRadius: 50,
-    },
-    dotLegendText: {
-        fontSize: fontSizes.sm,
-        color: colors.dark.text,
-        fontWeight: '500',
-    },
-
-    // No Workout Message
-    noWorkoutMessage: {
-        marginTop: spacing.sm,
-        backgroundColor: colors.dark.surface,
-        borderRadius: 10,
-        padding: spacing.md,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-    },
-    noWorkoutTitle: {
-        fontSize: fontSizes.lg,
-        fontWeight: 'bold',
-        color: colors.dark.text,
-        marginTop: spacing.md,
-        marginBottom: spacing.xs,
-    },
-    noWorkoutText: {
-        fontSize: fontSizes.md,
-        color: colors.dark.textSecondary,
-        textAlign: 'center',
-    },
-
-    // Selected Day Details
-    selectedDayDetails: {
-        marginTop: spacing.sm,
-        backgroundColor: colors.dark.surface,
-        borderRadius: 10,
-        padding: spacing.sm,
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-    },
-    selectedDayHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.lg,
         marginBottom: spacing.md,
-        paddingBottom: spacing.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.dark.border,
     },
-    selectedDayTitle: {
-        fontSize: fontSizes.lg,
-        fontWeight: 'bold',
-        color: colors.dark.text,
-    },
-    selectedDayWorkout: {
-        backgroundColor: colors.dark.background,
-        borderRadius: 8,
-        padding: spacing.sm,
-        marginBottom: spacing.sm,
-    },
-    selectedDayWorkoutHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        marginBottom: spacing.xs,
-    },
-    selectedDayWorkoutName: {
-        fontSize: fontSizes.md,
-        fontWeight: '600',
-        color: colors.dark.text,
-        flex: 1,
-    },
-    selectedDayWorkoutStats: {
-        flexDirection: 'row',
-        gap: spacing.md,
-        marginTop: spacing.xs,
-    },
-    selectedDayWorkoutStat: {
+    legendItem: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.xs,
     },
-    selectedDayWorkoutStatText: {
+    legendDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    legendText: {
         fontSize: fontSizes.sm,
         color: colors.dark.textSecondary,
+    },
+
+    // Selected Day Card
+    selectedDayCard: {
+        backgroundColor: colors.dark.surface,
+        borderRadius: 16,
+        padding: spacing.md,
+        borderWidth: 1,
+        borderColor: colors.dark.border,
+        marginBottom: spacing.md,
+    },
+    selectedDayDateText: {
+        fontSize: fontSizes.xl,
+        fontWeight: 'bold',
+        color: colors.dark.text,
+        marginBottom: spacing.xs,
+    },
+    selectedDaySubtext: {
+        fontSize: fontSizes.sm,
+        color: colors.dark.textSecondary,
+        marginBottom: spacing.md,
+    },
+    workoutDetailCard: {
+        backgroundColor: colors.dark.background,
+        borderRadius: 12,
+        padding: spacing.md,
+        marginTop: spacing.sm,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    workoutDetailName: {
+        fontSize: fontSizes.lg,
+        fontWeight: '600',
+        color: colors.dark.text,
+    },
+    workoutDetailTime: {
+        fontSize: fontSizes.md,
+        color: colors.dark.textSecondary,
+    },
+    noWorkoutContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: spacing.xl,
+    },
+    noWorkoutText: {
+        fontSize: fontSizes.md,
+        color: colors.dark.textSecondary,
+        marginTop: spacing.md,
+        textAlign: 'center',
     },
 })

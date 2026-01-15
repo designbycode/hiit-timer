@@ -391,7 +391,7 @@ export default function CreateWorkoutScreen() {
     }, [id, router])
 
     return (
-        <SafeAreaView edges={['top']} style={styles.container}>
+        <SafeAreaView edges={['bottom']} style={styles.container}>
             <KeyboardAvoidingView
                 style={styles.flex}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

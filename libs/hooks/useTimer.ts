@@ -128,7 +128,10 @@ export function useTimer(workoutId: string | null, workoutMuted: boolean = false
             // Save workout history
             const workout = workoutRef.current;
             if (workout) {
-              const timerState = useWorkoutStore.getState().timerState;
+              const state = useWorkoutStore.getState();
+              const timerState = state.timerState;
+              
+              // Calculate actual duration from start time
               const actualDuration = timerState.startTime 
                 ? Math.floor((Date.now() - timerState.startTime - timerState.pausedDuration) / 1000)
                 : 0;
@@ -142,6 +145,8 @@ export function useTimer(workoutId: string | null, workoutMuted: boolean = false
                 rounds: workout.rounds,
                 workDuration: workout.workDuration,
                 restDuration: workout.restDuration,
+                pauseCount: state.pauseCount,
+                skipCount: state.skipCount,
               };
               
               await storageService.saveWorkoutHistory(history);
