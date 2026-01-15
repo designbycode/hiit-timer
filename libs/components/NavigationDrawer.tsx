@@ -44,7 +44,11 @@ export function NavigationDrawer({ visible, onClose }: NavigationDrawerProps) {
         { label: 'FAQ', icon: 'help-circle-outline', route: '/faq' },
         { label: 'Rate App', icon: 'star-outline', route: '/support' },
         { label: 'Tips', icon: 'bulb-outline', route: '/tips' },
-        { label: 'Developer Info', icon: 'code-slash-outline', route: '/developer' },
+        {
+            label: 'Developer Info',
+            icon: 'code-slash-outline',
+            route: '/developer',
+        },
     ]
 
     const handleNavigate = (route: string) => {
@@ -80,8 +84,15 @@ export function NavigationDrawer({ visible, onClose }: NavigationDrawerProps) {
                     {/* Drawer Header */}
                     <View style={styles.drawerHeader}>
                         <Text style={styles.drawerTitle}>Menu</Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <Ionicons name="close" size={24} color={colors.dark.text} />
+                        <TouchableOpacity
+                            onPress={onClose}
+                            style={styles.closeButton}
+                        >
+                            <Ionicons
+                                name="close"
+                                size={24}
+                                color={colors.dark.text}
+                            />
                         </TouchableOpacity>
                     </View>
 
@@ -101,7 +112,9 @@ export function NavigationDrawer({ visible, onClose }: NavigationDrawerProps) {
                                         color={colors.dark.primary}
                                     />
                                 </View>
-                                <Text style={styles.itemLabel}>{item.label}</Text>
+                                <Text style={styles.itemLabel}>
+                                    {item.label}
+                                </Text>
                                 <Ionicons
                                     name="chevron-forward"
                                     size={20}
@@ -114,7 +127,8 @@ export function NavigationDrawer({ visible, onClose }: NavigationDrawerProps) {
                     {/* Drawer Footer */}
                     <View style={styles.drawerFooter}>
                         <Text style={styles.footerText}>
-                            HIIT Timer v{Constants.expoConfig?.version || '1.0.0'}
+                            HIIT Timer v
+                            {Constants.expoConfig?.version || '1.0.0'}
                         </Text>
                     </View>
                 </Animated.View>
@@ -177,8 +191,8 @@ const styles = StyleSheet.create({
         borderBottomColor: colors.dark.divider,
     },
     itemIconContainer: {
-        width: 40,
-        height: 40,
+        width: 30,
+        height: 30,
         borderRadius: 20,
         backgroundColor: 'rgba(255, 152, 0, 0.1)',
         justifyContent: 'center',
@@ -187,7 +201,7 @@ const styles = StyleSheet.create({
     },
     itemLabel: {
         flex: 1,
-        fontSize: fontSizes.lg,
+        fontSize: fontSizes.md,
         fontWeight: '600',
         color: colors.dark.text,
     },

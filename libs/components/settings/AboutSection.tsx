@@ -10,30 +10,116 @@ export function AboutSection() {
     return (
         <>
             <View style={styles.sectionCard}>
-                <Text style={styles.title}>About</Text>
+                <Text style={styles.title}>About HIIT Timer</Text>
                 
                 <View style={styles.aboutContainer}>
                     <Text style={styles.aboutText}>
-                        HIIT Timer is a simple, powerful interval timer designed for high-intensity interval training. 
-                        Create custom workouts, track your progress, and stay motivated with audio cues and haptic feedback.
+                        A powerful yet simple interval timer designed for high-intensity training. 
+                        Create custom workouts, track your progress with detailed statistics, and stay 
+                        motivated with audio cues, voice announcements, and haptic feedback.
                     </Text>
                     
+                    <Text style={styles.sectionHeading}>Core Features</Text>
                     <View style={styles.featuresList}>
                         <View style={styles.featureItem}>
-                            <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
-                            <Text style={styles.featureText}>Custom workout intervals</Text>
+                            <Ionicons name="create-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Custom workout builder</Text>
                         </View>
                         <View style={styles.featureItem}>
-                            <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
-                            <Text style={styles.featureText}>Audio & voice announcements</Text>
+                            <Ionicons name="flash-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Quick Start for instant sessions</Text>
                         </View>
                         <View style={styles.featureItem}>
-                            <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
-                            <Text style={styles.featureText}>Haptic feedback</Text>
+                            <Ionicons name="duplicate-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>4 preset workouts (Tabata, Beginner, Intermediate, Advanced)</Text>
                         </View>
                         <View style={styles.featureItem}>
-                            <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
-                            <Text style={styles.featureText}>Preset workouts</Text>
+                            <Ionicons name="timer-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Configurable warm-up, work, rest, and cool-down phases</Text>
+                        </View>
+                    </View>
+                    
+                    <Text style={styles.sectionHeading}>Workout Controls</Text>
+                    <View style={styles.featuresList}>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="play-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Tap timer to start/pause</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="play-skip-forward-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Skip phases during workout</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="refresh-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Reset and restart options</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="volume-high-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Mute button for silent workouts</Text>
+                        </View>
+                    </View>
+                    
+                    <Text style={styles.sectionHeading}>Audio & Feedback</Text>
+                    <View style={styles.featuresList}>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="megaphone-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Voice announcements for phase changes</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="musical-note-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Audio cues and ticking sounds</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="phone-portrait-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Haptic vibration feedback</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="volume-medium-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Adjustable volume control</Text>
+                        </View>
+                    </View>
+                    
+                    <Text style={styles.sectionHeading}>Progress Tracking</Text>
+                    <View style={styles.featuresList}>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="time-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Complete workout history</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="bar-chart-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Weekly workout statistics</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="calendar-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Monthly calendar view</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="flame-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Workout streaks and achievements</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="star-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Perfect session tracking (no pauses/skips)</Text>
+                        </View>
+                    </View>
+                    
+                    <Text style={styles.sectionHeading}>Smart Features</Text>
+                    <View style={styles.featuresList}>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="phone-landscape-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Keep screen awake during workouts</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="save-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Auto-save progress in background</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="pause-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Auto-pause when screen locks</Text>
+                        </View>
+                        <View style={styles.featureItem}>
+                            <Ionicons name="swap-horizontal-outline" size={20} color={colors.accent} />
+                            <Text style={styles.featureText}>Swipe to delete custom workouts</Text>
                         </View>
                     </View>
                     
@@ -78,9 +164,15 @@ const styles = StyleSheet.create({
         color: colors.dark.subtle,
         lineHeight: 22,
     },
+    sectionHeading: {
+        fontSize: fontSizes.lg,
+        fontWeight: '700',
+        color: colors.dark.text,
+        marginTop: spacing.lg,
+        marginBottom: spacing.xs,
+    },
     featuresList: {
         gap: spacing.sm,
-        marginTop: spacing.md,
     },
     featureItem: {
         flexDirection: 'row',
