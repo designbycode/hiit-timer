@@ -18,7 +18,8 @@ export const useButtonSound = () => {
       if (vibrationEnabled) {
         hapticManager.trigger('light');
       }
-      playButtonSound();
+      // Button click sound disabled
+      // playButtonSound();
       onPress?.();
     };
   }, [playButtonSound, vibrationEnabled]);
@@ -27,7 +28,8 @@ export const useButtonSound = () => {
     if (vibrationEnabled) {
       hapticManager.trigger('light');
     }
-    playButtonSound();
+    // Button click sound disabled
+    // playButtonSound();
   }, [playButtonSound, vibrationEnabled, soundEnabled]);
 
   return { playButtonSound, handlePress, handlePressIn };

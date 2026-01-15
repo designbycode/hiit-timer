@@ -3,6 +3,7 @@ import { WorkoutCard } from '@/libs/components/WorkoutCard'
 import { PrimaryButton } from '@/libs/components/PrimaryButton'
 import CustomModal from '@/libs/components/CustomModal'
 import { Toast } from '@/libs/components/ui'
+import { NavigationDrawer } from '@/libs/components/NavigationDrawer'
 import { colors, fontSizes, spacing } from '@/libs/constants/theme'
 import { PRESETS } from '@/libs/constants/presets'
 import { storageService } from '@/libs/services/storage/StorageService'
@@ -32,6 +33,9 @@ export default function HomeScreen() {
     const { handlePressIn } = useButtonSound()
     const modal = useModal()
     const toast = useToast()
+
+    // Drawer state
+    const [drawerVisible, setDrawerVisible] = useState(false)
 
     // Undo state
     const [lastDeleted, setLastDeleted] = useState<Workout | null>(null)
@@ -174,6 +178,15 @@ export default function HomeScreen() {
                     </View>
                     <Text style={styles.title}>HIIT Timer</Text>
                 </View>
+                <TouchableOpacity
+                    onPress={() => setDrawerVisible(true)}
+                    onPressIn={handlePressIn}
+                    style={styles.menuButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open menu"
+                >
+                    <Ionicons name="menu" size={28} color={colors.dark.text} />
+                </TouchableOpacity>
             </View>
 
             <Animated.FlatList
@@ -248,6 +261,11 @@ export default function HomeScreen() {
                 message={toast.message}
                 action={toast.action}
             />
+
+            <NavigationDrawer
+                visible={drawerVisible}
+                onClose={() => setDrawerVisible(false)}
+            />
         </SafeAreaView>
     )
 }
@@ -258,6 +276,9 @@ const styles = StyleSheet.create({
         backgroundColor: colors.dark.background,
     },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingHorizontal: spacing.sm,
         paddingVertical: spacing.md,
         borderBottomWidth: 1,
@@ -265,6 +286,13 @@ const styles = StyleSheet.create({
     },
     headerLeft: {
         flexDirection: 'row',
+        alignItems: 'center',
+    },
+    menuButton: {
+        padding: spacing.xs,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
         alignItems: 'center',
     },
     iconContainer: {

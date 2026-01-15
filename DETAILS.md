@@ -111,7 +111,7 @@ hiit, timer, interval timer, tabata, workout timer, fitness, training, run timer
 - Release channels:
   - Development/internal testing (APK): eas build -p android --profile preview
   - Production (AAB): eas build -p android --profile production
-- Versioning: Update app.json version and android.versionCode for each release
+- Versioning: Update package.json version (single source of truth); app.config.js reads it automatically. Android versionCode auto-increments in production builds (see VERSION.md)
 
 
 ## Localization (Optional)

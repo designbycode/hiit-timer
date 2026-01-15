@@ -7,34 +7,35 @@ import { colors, spacing, fontSizes } from '@/libs/constants/theme'
 const AppConfig = {
     storeId: {
         ios: 'YOUR_APP_STORE_ID',
-        android: 'co.za.designbycode.hiittimer'
-    }
+        android: 'co.za.designbycode.hiittimer',
+    },
 }
 
-export function SupportSection() {
+export function RateAppSection() {
     const handleRateApp = async () => {
         try {
             const appStoreId = AppConfig.storeId.ios
             const playStoreId = AppConfig.storeId.android
-            
+
             let url = ''
-            
+
             if (Platform.OS === 'ios') {
                 url = `itms-apps://itunes.apple.com/app/id${appStoreId}?action=write-review`
             } else if (Platform.OS === 'android') {
                 url = `market://details?id=${playStoreId}`
             } else {
-                url = 'https://www.example.com/rate'
+                url = 'https://www.designbycode.co.za'
             }
-            
+
             const supported = await Linking.canOpenURL(url)
-            
+
             if (supported) {
                 await Linking.openURL(url)
             } else {
-                const webUrl = Platform.OS === 'ios'
-                    ? `https://apps.apple.com/app/id${appStoreId}`
-                    : `https://play.google.com/store/apps/details?id=${playStoreId}`
+                const webUrl =
+                    Platform.OS === 'ios'
+                        ? `https://apps.apple.com/app/id${appStoreId}`
+                        : `https://play.google.com/store/apps/details?id=${playStoreId}`
                 await Linking.openURL(webUrl)
             }
         } catch (error) {
@@ -44,16 +45,19 @@ export function SupportSection() {
 
     return (
         <View style={styles.sectionCard}>
-            <Text style={styles.title}>Support</Text>
-            
+            <Text style={styles.title}>Rate App</Text>
+
             <View style={styles.rateAppContainer}>
                 <View style={styles.rateAppIcon}>
                     <Ionicons name="star" size={32} color={colors.accent} />
                 </View>
                 <View style={styles.rateAppContent}>
-                    <Text style={styles.rateAppTitle}>Enjoying HIIT Timer?</Text>
+                    <Text style={styles.rateAppTitle}>
+                        Enjoying HIIT Timer?
+                    </Text>
                     <Text style={styles.rateAppDescription}>
-                        Rate us on the App Store and help others discover the app!
+                        Rate us on the App Store and help others discover the
+                        app!
                     </Text>
                 </View>
             </View>

@@ -86,11 +86,13 @@
   - types/: Shared types (workout, timer)
   - utils/: Helpers (time formatting, performance)
 - Configuration
-  - app.json: Expo config (icons, splash, plugins, typedRoutes, reactCompiler)
-  - package.json: Scripts and dependencies
+  - app.config.js: Expo config (dynamically reads version from package.json)
+  - package.json: Scripts, dependencies, and **version (single source of truth)**
   - tsconfig.json: TypeScript config with path aliases
   - babel.config.js: Module resolver aliases and reanimated plugin
   - eslint.config.js: Linting via expo config
+  - eas.json: Build configuration with auto-increment for production
+  - VERSION.md: Version management guide
 
 
 
@@ -162,6 +164,15 @@
 - Clean up side effects (audio/speech/timers) on unmount or stop
 - Prefer `formatTime`/`formatTimeShort` from utils/time for consistency
 - Avoid hard-coded durations in UI; compute from workout and phase
+
+# Version Management
+
+- **Single source of truth**: `package.json` version field
+- `app.config.js` dynamically reads version from package.json
+- All UI components use `Constants.expoConfig?.version` to display version
+- **To update version**: Only edit `package.json` - changes propagate automatically
+- Android `versionCode` auto-increments in production builds (configured in eas.json)
+- See `VERSION.md` for detailed version management guide
 
 # Development
 

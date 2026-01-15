@@ -1,13 +1,12 @@
 import React, { useEffect } from 'react'
-import { View, StyleSheet, ScrollView, Text } from 'react-native'
+import { View, StyleSheet, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useSettingsStore } from '@/libs/store/settingsStore'
 import { useButtonSound } from '@/libs/hooks/useButtonSound'
-import { colors, spacing, fontSizes } from '@/libs/constants/theme'
+import { colors, spacing } from '@/libs/constants/theme'
 import { Button } from '@/libs/components/Button'
 import { AlertsSection } from '@/libs/components/settings/AlertsSection'
-import { SupportSection } from '@/libs/components/settings/SupportSection'
 import { Header } from '@/libs/components/Header'
 
 export default function SettingsScreen() {
@@ -40,10 +39,7 @@ export default function SettingsScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <Header
-                title="Settings"
-                hideRightIcon
-            />
+            <Header title="Settings" />
             <ScrollView contentContainerStyle={styles.contentContainer}>
                 <AlertsSection
                     soundEnabled={soundEnabled}
@@ -56,16 +52,6 @@ export default function SettingsScreen() {
                     onSetVolume={setSoundVolume}
                     onPressIn={handlePressIn}
                 />
-
-                <SupportSection />
-
-                {/*<AboutSection />*/}
-
-                {/*<TipsSection />*/}
-
-                {/*<FAQSection />*/}
-
-                {/*<LegalSection />*/}
 
                 <View style={styles.footerActions}>
                     <Button

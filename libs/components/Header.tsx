@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { colors, spacing, fontSizes } from '@/libs/constants/theme'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { NavigationDrawer } from '@/libs/components/NavigationDrawer'
 
 interface HeaderProps {
     title: string
@@ -16,6 +17,7 @@ interface HeaderProps {
     onRightPress?: () => void
     rightIconName?: keyof typeof Ionicons.glyphMap
     hideRightIcon?: boolean
+    showDrawerIcon?: boolean
     testID?: string
 }
 
@@ -25,8 +27,11 @@ export function Header({
     onRightPress,
     rightIconName,
     hideRightIcon,
+    showDrawerIcon = true,
     testID,
 }: HeaderProps) {
+    const [drawerVisible, setDrawerVisible] = useState(false)
+
     return (
         <SafeAreaView edges={['top']} style={styles.safeArea}>
             <StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -63,10 +68,28 @@ export function Header({
                             color={colors.dark.text}
                         />
                     </TouchableOpacity>
+                ) : showDrawerIcon ? (
+                    <TouchableOpacity
+                        onPress={() => setDrawerVisible(true)}
+                        style={styles.iconButton}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open menu"
+                    >
+                        <Ionicons
+                            name="menu"
+                            size={24}
+                            color={colors.dark.text}
+                        />
+                    </TouchableOpacity>
                 ) : (
                     <View style={styles.iconButtonPlaceholder} />
                 )}
             </View>
+            
+            <NavigationDrawer
+                visible={drawerVisible}
+                onClose={() => setDrawerVisible(false)}
+            />
         </SafeAreaView>
     )
 }

@@ -25,7 +25,7 @@ import { useModal } from '@/libs/hooks/useModal'
 import CustomModal from '@/libs/components/CustomModal'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
-const CHART_WIDTH = SCREEN_WIDTH - spacing.md * 4 // Proper padding for card containment
+const CHART_WIDTH = SCREEN_WIDTH - spacing.md * 2 - spacing.md * 2 - 32 // Account for card padding and margins
 
 type TabType = 'History' | 'Stats' | 'Calendar'
 export default function HistoryScreen() {
@@ -191,12 +191,27 @@ export default function HistoryScreen() {
         }
     }, [history])
 
-    // Prepare chart data for last 7 days
+    // Prepare chart data for last 7 days (Monday to Sunday)
     const chartData = useMemo(() => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        // Get the day of week (0 = Sunday, 1 = Monday, etc.)
+        const currentDayOfWeek = today.getDay()
+        
+        // Calculate days since last Monday (0 = Monday, 6 = Sunday)
+        // If today is Sunday (0), we want 6 days back. If Monday (1), we want 0 days back
+        const daysSinceMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1
+        
+        // Get last Monday
+        const lastMonday = new Date(today)
+        lastMonday.setDate(today.getDate() - daysSinceMonday)
+        lastMonday.setHours(0, 0, 0, 0)
+        
+        // Generate array of 7 days starting from Monday
         const last7Days = Array.from({ length: 7 }, (_, i) => {
-            const date = new Date()
-            date.setDate(date.getDate() - (6 - i))
-            date.setHours(0, 0, 0, 0)
+            const date = new Date(lastMonday)
+            date.setDate(lastMonday.getDate() + i)
             return date.getTime()
         })
 
@@ -536,40 +551,46 @@ export default function HistoryScreen() {
                 <>
                     <Text style={styles.statsHeading}>This Week</Text>
                     <View style={styles.chartContainer}>
-                        <BarChart
-                            data={{
-                                labels: chartData.labels,
-                                datasets: [
-                                    {
-                                        data:
-                                            chartData.data.length > 0
-                                                ? chartData.data
-                                                : [0],
+                        <View style={styles.chartWrapper}>
+                            <BarChart
+                                data={{
+                                    labels: chartData.labels,
+                                    datasets: [
+                                        {
+                                            data:
+                                                chartData.data.length > 0
+                                                    ? chartData.data
+                                                    : [0],
+                                        },
+                                    ],
+                                }}
+                                width={CHART_WIDTH}
+                                height={220}
+                                yAxisLabel=""
+                                yAxisSuffix=""
+                                chartConfig={{
+                                    backgroundColor: colors.dark.surface,
+                                    backgroundGradientFrom: colors.dark.surface,
+                                    backgroundGradientTo: colors.dark.surface,
+                                    decimalPlaces: 0,
+                                    color: (opacity = 1) =>
+                                        `rgba(255, 152, 0, ${opacity})`,
+                                    labelColor: (opacity = 1) =>
+                                        `rgba(255, 255, 255, ${opacity})`,
+                                    style: { borderRadius: 16 },
+                                    barPercentage: 0.5,
+                                    propsForBackgroundLines: {
+                                        strokeWidth: 0,
                                     },
-                                ],
-                            }}
-                            width={CHART_WIDTH}
-                            height={220}
-                            yAxisLabel=""
-                            yAxisSuffix=""
-                            chartConfig={{
-                                backgroundColor: colors.dark.surface,
-                                backgroundGradientFrom: colors.dark.surface,
-                                backgroundGradientTo: colors.dark.surface,
-                                decimalPlaces: 0,
-                                color: (opacity = 1) =>
-                                    `rgba(255, 152, 0, ${opacity})`,
-                                labelColor: (opacity = 1) =>
-                                    `rgba(255, 255, 255, ${opacity})`,
-                                style: { borderRadius: 16 },
-                                barPercentage: 0.5,
-                                propsForBackgroundLines: {
-                                    strokeWidth: 0,
-                                },
-                            }}
-                            style={styles.chart}
-                            fromZero
-                        />
+                                    propsForLabels: {
+                                        fontSize: 12,
+                                    },
+                                }}
+                                style={styles.chart}
+                                fromZero
+                                withInnerLines={false}
+                            />
+                        </View>
                         <Text style={styles.chartSubtext}>
                             {chartData.data.reduce((a, b) => a + b, 0)} workout
                             {chartData.data.reduce((a, b) => a + b, 0) !== 1
@@ -953,7 +974,7 @@ export default function HistoryScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <Header title="Workout History" hideRightIcon />
+            <Header title="Workout History" />
 
             <CustomModal
                 visible={modal.visible}
@@ -1204,10 +1225,17 @@ const styles = StyleSheet.create({
         borderColor: colors.dark.border,
         alignItems: 'center',
         marginBottom: spacing.md,
+        overflow: 'hidden',
+    },
+    chartWrapper: {
+        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     chart: {
         borderRadius: 16,
         marginVertical: 0,
+        paddingRight: 0,
     },
     chartSubtext: {
         fontSize: fontSizes.sm,

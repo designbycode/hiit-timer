@@ -27,10 +27,10 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(
             if (vibrationEnabled) {
                 await hapticManager.trigger('medium')
             }
-            if (soundEnabled) {
-                // Reuse button click as a short cue; can be customized later
-                playButtonClick()
-            }
+            // Sound disabled for swipe-to-delete actions
+            // if (soundEnabled) {
+            //     playButtonClick()
+            // }
         }
 
         const handleDelete = async () => {

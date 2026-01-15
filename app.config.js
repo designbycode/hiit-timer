@@ -1,0 +1,89 @@
+const packageJson = require('./package.json')
+
+module.exports = {
+    expo: {
+        name: 'HIIT Timer',
+        slug: 'hiit-timer',
+        version: packageJson.version,
+        orientation: 'portrait',
+        icon: './assets/images/icon.png',
+        scheme: 'hiittimer',
+        userInterfaceStyle: 'dark',
+        newArchEnabled: true,
+        ios: {
+            supportsTablet: true,
+            infoPlist: {
+                UIBackgroundModes: ['audio', 'audio'],
+            },
+        },
+        android: {
+            adaptiveIcon: {
+                backgroundColor: '#0c0c0b',
+                foregroundImage: './assets/images/android-icon-foreground.png',
+                backgroundImage: './assets/images/android-icon-background.png',
+                monochromeImage: './assets/images/android-icon-monochrome.png',
+            },
+            edgeToEdgeEnabled: true,
+            predictiveBackGestureEnabled: false,
+            permissions: [
+                'android.permission.RECORD_AUDIO',
+                'android.permission.MODIFY_AUDIO_SETTINGS',
+                'android.permission.RECORD_AUDIO',
+                'android.permission.MODIFY_AUDIO_SETTINGS',
+            ],
+            package: 'co.za.designbycode.hiittimer',
+            versionCode: 2,
+        },
+        web: {
+            output: 'static',
+            favicon: './assets/images/favicon.png',
+        },
+        plugins: [
+            'expo-router',
+            [
+                'expo-splash-screen',
+                {
+                    image: './assets/images/splash-icon.png',
+                    imageWidth: 200,
+                    resizeMode: 'contain',
+                    backgroundColor: '#000000',
+                    dark: {
+                        backgroundColor: '#000000',
+                    },
+                },
+            ],
+            [
+                'expo-audio',
+                {
+                    microphonePermission:
+                        'Allow $(PRODUCT_NAME) to access your microphone.',
+                },
+            ],
+            'expo-asset',
+            [
+                'react-native-google-mobile-ads',
+                {
+                    androidAppId: 'ca-app-pub-8049621865774957~9160760366',
+                    iosAppId: 'ca-app-pub-3940256099942544~1458002511',
+                },
+            ],
+        ],
+        experiments: {
+            typedRoutes: true,
+            reactCompiler: true,
+        },
+        extra: {
+            router: {},
+            eas: {
+                projectId: 'cdede368-0bb6-4136-954c-708956d80443',
+            },
+        },
+        owner: 'designbycode-app',
+        runtimeVersion: {
+            policy: 'appVersion',
+        },
+        updates: {
+            url: 'https://u.expo.dev/cdede368-0bb6-4136-954c-708956d80443',
+        },
+    },
+}

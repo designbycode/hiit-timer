@@ -374,7 +374,7 @@ export default function CreateWorkoutScreen() {
                 <Header
                     title={isEditing ? 'Edit Workout' : 'Create Workout'}
                     onBackPress={() => router.back()}
-                    hideRightIcon
+                    showDrawerIcon={false}
                 />
 
                 <ScrollView

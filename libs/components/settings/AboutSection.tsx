@@ -1,44 +1,12 @@
 import React from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { colors, spacing, fontSizes } from '@/libs/constants/theme'
-import { hapticManager } from '@/libs/services/alerts/HapticManager'
 import Constants from 'expo-constants'
 
 // Inline config to avoid import errors
-const AppConfig = {
-    info: {
-        version: Constants.expoConfig?.version || '1.0.1'
-    }
-}
-
-const SocialConfig = {
-    twitter: 'https://twitter.com/yourusername',
-    instagram: 'https://instagram.com/yourusername', 
-    facebook: 'https://facebook.com/yourpage',
-    github: 'https://github.com/yourusername'
-}
 
 export function AboutSection() {
-    const handleOpenURL = async (url: string) => {
-        try {
-            const supported = await Linking.canOpenURL(url)
-            if (supported) {
-                hapticManager.trigger('light')
-                await Linking.openURL(url)
-            }
-        } catch (error) {
-            console.error('Error opening URL:', error)
-        }
-    }
-
-    const socialLinks = [
-        { icon: 'logo-twitter', label: 'Twitter', url: SocialConfig.twitter },
-        { icon: 'logo-instagram', label: 'Instagram', url: SocialConfig.instagram },
-        { icon: 'logo-facebook', label: 'Facebook', url: SocialConfig.facebook },
-        { icon: 'logo-github', label: 'GitHub', url: SocialConfig.github },
-    ]
-
     return (
         <>
             <View style={styles.sectionCard}>
@@ -71,7 +39,9 @@ export function AboutSection() {
                     
                     <View style={styles.versionContainer}>
                         <Text style={styles.versionLabel}>Version</Text>
-                        <Text style={styles.versionText}>{AppConfig.info.version}</Text>
+                        <Text style={styles.versionText}>
+                            {Constants.expoConfig?.version || '1.0.0'}
+                        </Text>
                     </View>
                     
                     <View style={styles.buildInfo}>
@@ -79,23 +49,6 @@ export function AboutSection() {
                             Made with ❤️ for fitness enthusiasts
                         </Text>
                     </View>
-                </View>
-            </View>
-
-            <View style={styles.sectionCard}>
-                <Text style={styles.title}>Connect With Us</Text>
-                
-                <View style={styles.socialContainer}>
-                    {socialLinks.map((social) => (
-                        <TouchableOpacity
-                            key={social.label}
-                            style={styles.socialButton}
-                            onPress={() => handleOpenURL(social.url)}
-                        >
-                            <Ionicons name={social.icon as any} size={24} color={colors.dark.text} />
-                            <Text style={styles.socialButtonText}>{social.label}</Text>
-                        </TouchableOpacity>
-                    ))}
                 </View>
             </View>
         </>
@@ -168,29 +121,5 @@ const styles = StyleSheet.create({
         fontSize: fontSizes.sm,
         color: colors.dark.muted,
         fontStyle: 'italic',
-    },
-    socialContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: spacing.sm,
-    },
-    socialButton: {
-        flex: 1,
-        minWidth: '45%',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.sm,
-        paddingVertical: spacing.md,
-        paddingHorizontal: spacing.sm,
-        backgroundColor: colors.dark.surfaceAlt,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-    },
-    socialButtonText: {
-        fontSize: fontSizes.md,
-        color: colors.dark.text,
-        fontWeight: '600',
     },
 })
