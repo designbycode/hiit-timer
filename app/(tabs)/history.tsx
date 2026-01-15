@@ -22,6 +22,7 @@ import { Header } from '@/libs/components/Header'
 import { Swipeable } from 'react-native-gesture-handler'
 import { EmptyState, StatCard, FilterButton } from '@/libs/components/ui'
 import { useModal } from '@/libs/hooks/useModal'
+import CustomModal from '@/libs/components/CustomModal'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const CHART_WIDTH = SCREEN_WIDTH - spacing.md * 4 // Proper padding for card containment
@@ -953,6 +954,14 @@ export default function HistoryScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <Header title="Workout History" hideRightIcon />
+
+            <CustomModal
+                visible={modal.visible}
+                title={modal.title}
+                message={modal.message}
+                buttons={modal.buttons}
+                onRequestClose={modal.hideModal}
+            />
 
             {/* Custom Tab Navigation */}
             <View style={styles.tabNavigation}>
