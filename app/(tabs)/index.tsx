@@ -2,12 +2,15 @@ import { QuickStartCard } from '@/libs/components/QuickStartCard'
 import { WorkoutCard } from '@/libs/components/WorkoutCard'
 import { PrimaryButton } from '@/libs/components/PrimaryButton'
 import CustomModal from '@/libs/components/CustomModal'
+import { Toast } from '@/libs/components/ui'
 import { colors, fontSizes, spacing } from '@/libs/constants/theme'
 import { PRESETS } from '@/libs/constants/presets'
 import { storageService } from '@/libs/services/storage/StorageService'
 import { useWorkoutStore } from '@/libs/store/workoutStore'
 import { Workout } from '@/libs/types/workout'
 import { useButtonSound } from '@/libs/hooks/useButtonSound'
+import { useModal } from '@/libs/hooks/useModal'
+import { useToast } from '@/libs/hooks/useToast'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
@@ -27,17 +30,11 @@ export default function HomeScreen() {
     const [lastUsedWorkout, setLastUsedWorkout] = useState<Workout | null>(null)
     const { setWorkout } = useWorkoutStore()
     const { handlePressIn } = useButtonSound()
-    const [modalVisible, setModalVisible] = useState(false)
-    const [modalTitle, setModalTitle] = useState('')
-    const [modalMessage, setModalMessage] = useState('')
-    const [modalButtons, setModalButtons] = useState<any[]>([])
+    const modal = useModal()
+    const toast = useToast()
 
-    // Undo toast state
+    // Undo state
     const [lastDeleted, setLastDeleted] = useState<Workout | null>(null)
-    const [undoTimer, setUndoTimer] = useState<ReturnType<
-        typeof setTimeout
-    > | null>(null)
-    const [showUndo, setShowUndo] = useState(false)
 
     // Filter state: true = show all, false = show only user workouts
     const [showAllWorkouts, setShowAllWorkouts] = useState(true)
@@ -124,31 +121,6 @@ export default function HomeScreen() {
         [router, setWorkout]
     )
 
-    const handleDelete = useCallback(
-        async (id: string) => {
-            try {
-                const all = [...PRESETS, ...workouts]
-                const found = all.find((w) => w.id === id) || null
-                await storageService.deleteWorkout(id)
-                await storageService.flush?.()
-                setLastDeleted(found)
-                setShowUndo(true)
-                // Auto-hide after 4 seconds
-                if (undoTimer) clearTimeout(undoTimer)
-                const t = setTimeout(() => {
-                    setShowUndo(false)
-                    setLastDeleted(null)
-                    setUndoTimer(null)
-                }, 4000)
-                setUndoTimer(t)
-                await loadWorkouts()
-            } catch (e) {
-                console.error('Failed to delete workout:', e)
-            }
-        },
-        [workouts, loadWorkouts, undoTimer]
-    )
-
     const handleUndo = useCallback(async () => {
         try {
             if (lastDeleted) {
@@ -159,12 +131,32 @@ export default function HomeScreen() {
         } catch (e) {
             console.error('Failed to undo delete:', e)
         } finally {
-            if (undoTimer) clearTimeout(undoTimer)
-            setUndoTimer(null)
-            setShowUndo(false)
             setLastDeleted(null)
         }
-    }, [lastDeleted, loadWorkouts, undoTimer])
+    }, [lastDeleted, loadWorkouts])
+
+    const handleDelete = useCallback(
+        async (id: string) => {
+            try {
+                const all = [...PRESETS, ...workouts]
+                const found = all.find((w) => w.id === id) || null
+                await storageService.deleteWorkout(id)
+                await storageService.flush?.()
+                setLastDeleted(found)
+                toast.show({
+                    message: `Deleted${found ? `: ${found.name}` : ''}`,
+                    action: {
+                        label: 'Undo',
+                        onPress: handleUndo,
+                    },
+                })
+                await loadWorkouts()
+            } catch (e) {
+                console.error('Failed to delete workout:', e)
+            }
+        },
+        [workouts, loadWorkouts, toast, handleUndo]
+    )
 
     const handleCreateWorkout = useCallback(() => {
         router.push('/create-workout')
@@ -244,25 +236,18 @@ export default function HomeScreen() {
             </View>
 
             <CustomModal
-                visible={modalVisible}
-                title={modalTitle}
-                message={modalMessage}
-                buttons={modalButtons}
-                onRequestClose={() => setModalVisible(false)}
+                visible={modal.visible}
+                title={modal.title}
+                message={modal.message}
+                buttons={modal.buttons}
+                onRequestClose={modal.hideModal}
             />
 
-            {showUndo && (
-                <View style={styles.toastContainer}>
-                    <View style={styles.toast}>
-                        <Text style={styles.toastText}>
-                            Deleted{lastDeleted ? `: ${lastDeleted.name}` : ''}
-                        </Text>
-                        <TouchableOpacity onPress={handleUndo}>
-                            <Text style={styles.toastUndo}>Undo</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
+            <Toast
+                visible={toast.visible}
+                message={toast.message}
+                action={toast.action}
+            />
         </SafeAreaView>
     )
 }
@@ -341,38 +326,5 @@ const styles = StyleSheet.create({
         backgroundColor: colors.dark.background,
         borderTopWidth: 1,
         borderTopColor: colors.dark.border,
-    },
-    toastContainer: {
-        position: 'absolute',
-        left: spacing.sm,
-        right: spacing.sm,
-        bottom: 70,
-    },
-    toast: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: colors.dark.surfaceAlt,
-        borderColor: colors.dark.border,
-        borderWidth: 1,
-        borderRadius: 10,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 4,
-    },
-    toastText: {
-        color: colors.dark.text,
-        fontSize: fontSizes.md,
-        fontWeight: '500',
-    },
-    toastUndo: {
-        color: colors.dark.primary,
-        fontSize: fontSizes.md,
-        fontWeight: '700',
-        marginLeft: spacing.md,
     },
 })

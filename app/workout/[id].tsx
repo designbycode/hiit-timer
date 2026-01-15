@@ -9,7 +9,6 @@ import {
     Modal,
     Animated,
     AppState,
-    Dimensions,
     ScrollView,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -20,12 +19,11 @@ import {
     useTimerState,
     useIsActive,
 } from '@/libs/store/workoutStore'
-import { useSettingsStore } from '@/libs/store/settingsStore'
 import { useTimer } from '@/libs/hooks/useTimer'
 import { useKeepScreenAwake } from '@/libs/hooks/useKeepAwake'
 import { useBackgroundPersistence } from '@/libs/hooks/useBackgroundPersistence'
 import { useButtonSound } from '@/libs/hooks/useButtonSound'
-import { useAudio } from '@/libs/contexts/AudioContext'
+import { useModal } from '@/libs/hooks/useModal'
 import { TimerDisplay } from '@/libs/components/TimerDisplay'
 import CustomModal from '@/libs/components/CustomModal'
 import { Header } from '@/libs/components/Header'
@@ -42,15 +40,6 @@ export default function WorkoutScreen() {
     const timerState = useTimerState()
     const isActive = useIsActive()
     const { currentWorkout } = useWorkoutStore()
-    const settingsStore = useSettingsStore()
-    const {
-        soundEnabled,
-        vibrationEnabled,
-        voiceEnabled,
-        toggleSound,
-        toggleVibration,
-        toggleVoice,
-    } = settingsStore
     const [workoutMuted, setWorkoutMuted] = useState(false)
 
     const {
@@ -62,6 +51,7 @@ export default function WorkoutScreen() {
         restart,
     } = useTimer(id || null, workoutMuted)
     const { handlePressIn } = useButtonSound()
+    const modal = useModal()
     const [showCompletionModal, setShowCompletionModal] = useState(false)
     const [completionVisible, setCompletionVisible] = useState(false)
     const [wasPausedByUser, setWasPausedByUser] = useState(false)
@@ -126,46 +116,25 @@ export default function WorkoutScreen() {
 
         return () => subscription?.remove()
     }, [isActive, pause, wasPausedByUser])
-    const [modalVisible, setModalVisible] = useState(false)
-    const [modalTitle, setModalTitle] = useState('')
-    const [modalMessage, setModalMessage] = useState('')
-    const [modalButtons, setModalButtons] = useState<any[]>([])
-
-    const showAlert = (title: string, message: string, buttons: any[]) => {
-        setModalTitle(title)
-        setModalMessage(message)
-        setModalButtons(buttons)
-        setModalVisible(true)
-    }
 
     const handleBackPress = useCallback(() => {
         const hasStarted = !!timerState.startTime
         if (hasStarted) {
-            showAlert(
+            modal.showConfirm(
                 'Workout in Progress',
                 'Are you sure you want to leave? Your progress will be lost.',
-                [
-                    {
-                        text: 'Cancel',
-                        style: 'cancel',
-                        onPress: () => setModalVisible(false),
-                    },
-                    {
-                        text: 'Leave',
-                        style: 'destructive',
-                        onPress: () => {
-                            setModalVisible(false)
-                            stopTimer()
-                            router.back()
-                        },
-                    },
-                ]
+                () => {
+                    stopTimer()
+                    router.back()
+                },
+                'Leave',
+                'Cancel'
             )
             return true
         }
         // Not started yet; allow default back behavior
         return false
-    }, [router, stopTimer, timerState.startTime])
+    }, [router, stopTimer, timerState.startTime, modal])
 
     useKeepScreenAwake(isActive && timerState.isRunning)
 
@@ -201,27 +170,17 @@ export default function WorkoutScreen() {
             router.back()
             return
         }
-        showAlert(
+        modal.showConfirm(
             'Stop Workout',
             'Are you sure you want to stop this workout?',
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                    onPress: () => setModalVisible(false),
-                },
-                {
-                    text: 'Stop',
-                    style: 'destructive',
-                    onPress: () => {
-                        setModalVisible(false)
-                        stopTimer()
-                        router.back()
-                    },
-                },
-            ]
+            () => {
+                stopTimer()
+                router.back()
+            },
+            'Stop',
+            'Cancel'
         )
-    }, [router, stopTimer, timerState.startTime])
+    }, [router, stopTimer, timerState.startTime, modal])
 
     const handleSkip = useCallback(() => {
         skip()
@@ -238,55 +197,15 @@ export default function WorkoutScreen() {
             setShowCompletionModal(false)
             restart()
         } else {
-            showAlert(
+            modal.showConfirm(
                 'Restart Workout',
                 'Are you sure you want to restart this workout from the beginning?',
-                [
-                    {
-                        text: 'Cancel',
-                        style: 'cancel',
-                        onPress: () => setModalVisible(false),
-                    },
-                    {
-                        text: 'Restart',
-                        style: 'destructive',
-                        onPress: () => {
-                            setModalVisible(false)
-                            restart()
-                        },
-                    },
-                ]
+                restart,
+                'Restart',
+                'Cancel'
             )
         }
-    }, [restart, showCompletionModal])
-
-    const handleOpenSettings = useCallback(() => {
-        const hasStarted = !!timerState.startTime
-        if (!hasStarted) {
-            router.push('/settings')
-            return
-        }
-        showAlert(
-            'Workout in Progress',
-            'Are you sure you want to leave? Your progress will be lost.',
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                    onPress: () => setModalVisible(false),
-                },
-                {
-                    text: 'Leave',
-                    style: 'destructive',
-                    onPress: () => {
-                        setModalVisible(false)
-                        stopTimer()
-                        router.push('/settings')
-                    },
-                },
-            ]
-        )
-    }, [router, stopTimer, timerState.startTime])
+    }, [restart, showCompletionModal, modal])
 
     const handleEditWorkout = useCallback(() => {
         const hasStarted = !!timerState.startTime
@@ -294,27 +213,17 @@ export default function WorkoutScreen() {
             router.push(`/create-workout?id=${id}`)
             return
         }
-        showAlert(
+        modal.showConfirm(
             'Workout in Progress',
             'Are you sure you want to leave? Your progress will be lost.',
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                    onPress: () => setModalVisible(false),
-                },
-                {
-                    text: 'Leave',
-                    style: 'destructive',
-                    onPress: () => {
-                        setModalVisible(false)
-                        stopTimer()
-                        router.push(`/create-workout?id=${id}`)
-                    },
-                },
-            ]
+            () => {
+                stopTimer()
+                router.push(`/create-workout?id=${id}`)
+            },
+            'Leave',
+            'Cancel'
         )
-    }, [router, stopTimer, timerState.startTime, id])
+    }, [router, stopTimer, timerState.startTime, id, modal])
 
     const totalRounds = useMemo(() => {
         return currentWorkout?.rounds || 0
@@ -427,9 +336,6 @@ export default function WorkoutScreen() {
         totalWorkoutDuration,
     ])
 
-    // Calculate remaining time from elapsed
-    const totalRemainingTime = totalWorkoutDuration - elapsedTime
-
     // Calculate total workout progress (0 to 1)
     const totalProgress = useMemo(() => {
         if (totalWorkoutDuration === 0) return 0
@@ -449,73 +355,6 @@ export default function WorkoutScreen() {
             setShowCompletionModal(true)
         }
     }, [timerState.phase])
-
-    const getNextPhaseInfo = useCallback(() => {
-        const workout = currentWorkout
-        let nextPhase: Phase = Phase.COMPLETE
-        if (!workout) return { label: 'Next', duration: 0 }
-
-        switch (timerState.phase) {
-            case Phase.COUNTDOWN:
-                nextPhase =
-                    workout.warmUpDuration && workout.warmUpDuration > 0
-                        ? Phase.WARM_UP
-                        : Phase.WORK
-                break
-            case Phase.WARM_UP:
-                nextPhase = Phase.WORK
-                break
-            case Phase.WORK:
-                nextPhase =
-                    timerState.currentRound < workout.rounds - 1
-                        ? Phase.REST
-                        : workout.coolDownDuration &&
-                            workout.coolDownDuration > 0
-                          ? Phase.COOL_DOWN
-                          : Phase.COMPLETE
-                break
-            case Phase.REST:
-                nextPhase = Phase.WORK
-                break
-            case Phase.COOL_DOWN:
-                nextPhase = Phase.COMPLETE
-                break
-            case Phase.COMPLETE:
-                nextPhase = Phase.COMPLETE
-                break
-        }
-
-        const labels: Record<Phase, string> = {
-            [Phase.COUNTDOWN]: 'Get Ready',
-            [Phase.WARM_UP]: 'Warm Up',
-            [Phase.WORK]: 'Workout',
-            [Phase.REST]: 'Rest',
-            [Phase.COOL_DOWN]: 'Cool Down',
-            [Phase.COMPLETE]: 'Finished',
-        }
-
-        const getDuration = (phase: Phase): number => {
-            switch (phase) {
-                case Phase.COUNTDOWN:
-                    return TIMINGS.COUNTDOWN_DURATION
-                case Phase.WARM_UP:
-                    return workout.warmUpDuration || 0
-                case Phase.WORK:
-                    return workout.workDuration || 0
-                case Phase.REST:
-                    return workout.restDuration || 0
-                case Phase.COOL_DOWN:
-                    return workout.coolDownDuration || 0
-                default:
-                    return 0
-            }
-        }
-
-        return {
-            label: `Next ${labels[nextPhase]}`,
-            duration: getDuration(nextPhase),
-        }
-    }, [timerState.phase, timerState.currentRound, currentWorkout])
 
     if (!currentWorkout) {
         return null
@@ -691,11 +530,11 @@ export default function WorkoutScreen() {
             <AdBanner style={styles.adBanner} />
 
             <CustomModal
-                visible={modalVisible}
-                title={modalTitle}
-                message={modalMessage}
-                buttons={modalButtons}
-                onRequestClose={() => setModalVisible(false)}
+                visible={modal.visible}
+                title={modal.title}
+                message={modal.message}
+                buttons={modal.buttons}
+                onRequestClose={modal.hideModal}
             />
         </SafeAreaView>
     )

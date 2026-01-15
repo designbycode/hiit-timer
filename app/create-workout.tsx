@@ -19,6 +19,7 @@ import { storageService } from '@/libs/services/storage/StorageService'
 import { Button } from '@/libs/components/Button'
 import { PrimaryButton } from '@/libs/components/PrimaryButton'
 import CustomModal from '@/libs/components/CustomModal'
+import { useModal } from '@/libs/hooks/useModal'
 import { Workout } from '@/libs/types/workout'
 import { TIMINGS } from '@/libs/constants/timings'
 import { colors, fontSizes, spacing } from '@/libs/constants/theme'
@@ -31,6 +32,7 @@ export default function CreateWorkoutScreen() {
     const router = useRouter()
     const { id } = useLocalSearchParams<{ id?: string }>()
     const { currentWorkout } = useWorkoutStore()
+    const modal = useModal()
     const isEditing = !!id
 
     const [name, setName] = useState('')
@@ -40,10 +42,6 @@ export default function CreateWorkoutScreen() {
     const [warmUpDuration, setWarmUpDuration] = useState('')
     const [coolDownDuration, setCoolDownDuration] = useState('')
     const [loading, setLoading] = useState(false)
-    const [modalVisible, setModalVisible] = useState(false)
-    const [modalTitle, setModalTitle] = useState('')
-    const [modalMessage, setModalMessage] = useState('')
-    const [modalButtons, setModalButtons] = useState<any[]>([])
 
     // Toggle states for warm-up and cool-down
     const [warmUpEnabled, setWarmUpEnabled] = useState(false)
@@ -117,13 +115,6 @@ export default function CreateWorkoutScreen() {
         })
     ).current
 
-    const showAlert = (title: string, message: string, buttons: any[]) => {
-        setModalTitle(title)
-        setModalMessage(message)
-        setModalButtons(buttons)
-        setModalVisible(true)
-    }
-
     useEffect(() => {
         if (isEditing && currentWorkout) {
             setName(currentWorkout.name)
@@ -196,9 +187,7 @@ export default function CreateWorkoutScreen() {
         if (!name.trim()) {
             setNameError(true)
             setNameErrorMessage('Please enter a workout name')
-            showAlert('Error', 'Please enter a workout name', [
-                { text: 'OK', onPress: () => setModalVisible(false) },
-            ])
+            modal.showError('Error', 'Please enter a workout name')
             return false
         }
 
@@ -210,10 +199,9 @@ export default function CreateWorkoutScreen() {
         if (duplicateWorkout) {
             setNameError(true)
             setNameErrorMessage('This workout name already exists')
-            showAlert(
+            modal.showError(
                 'Duplicate Name',
-                `A workout named "${name.trim()}" already exists. Please choose a different name.`,
-                [{ text: 'OK', onPress: () => setModalVisible(false) }]
+                `A workout named "${name.trim()}" already exists. Please choose a different name.`
             )
             return false
         }
@@ -232,10 +220,9 @@ export default function CreateWorkoutScreen() {
             work < TIMINGS.MIN_WORK_DURATION ||
             work > TIMINGS.MAX_WORK_DURATION
         ) {
-            showAlert(
+            modal.showError(
                 'Error',
-                `Workout duration must be between ${TIMINGS.MIN_WORK_DURATION} and ${TIMINGS.MAX_WORK_DURATION} seconds`,
-                [{ text: 'OK', onPress: () => setModalVisible(false) }]
+                `Workout duration must be between ${TIMINGS.MIN_WORK_DURATION} and ${TIMINGS.MAX_WORK_DURATION} seconds`
             )
             return false
         }
@@ -244,37 +231,33 @@ export default function CreateWorkoutScreen() {
             rest < TIMINGS.MIN_REST_DURATION ||
             rest > TIMINGS.MAX_REST_DURATION
         ) {
-            showAlert(
+            modal.showError(
                 'Error',
-                `Rest duration must be between ${TIMINGS.MIN_REST_DURATION} and ${TIMINGS.MAX_REST_DURATION} seconds`,
-                [{ text: 'OK', onPress: () => setModalVisible(false) }]
+                `Rest duration must be between ${TIMINGS.MIN_REST_DURATION} and ${TIMINGS.MAX_REST_DURATION} seconds`
             )
             return false
         }
 
         if (roundsNum < TIMINGS.MIN_ROUNDS || roundsNum > TIMINGS.MAX_ROUNDS) {
-            showAlert(
+            modal.showError(
                 'Error',
-                `Rounds must be between ${TIMINGS.MIN_ROUNDS} and ${TIMINGS.MAX_ROUNDS}`,
-                [{ text: 'OK', onPress: () => setModalVisible(false) }]
+                `Rounds must be between ${TIMINGS.MIN_ROUNDS} and ${TIMINGS.MAX_ROUNDS}`
             )
             return false
         }
 
         if (warmUp > TIMINGS.MAX_WARM_UP) {
-            showAlert(
+            modal.showError(
                 'Error',
-                `Warm-up duration cannot exceed ${TIMINGS.MAX_WARM_UP} seconds`,
-                [{ text: 'OK', onPress: () => setModalVisible(false) }]
+                `Warm-up duration cannot exceed ${TIMINGS.MAX_WARM_UP} seconds`
             )
             return false
         }
 
         if (coolDown > TIMINGS.MAX_COOL_DOWN) {
-            showAlert(
+            modal.showError(
                 'Error',
-                `Cool-down duration cannot exceed ${TIMINGS.MAX_COOL_DOWN} seconds`,
-                [{ text: 'OK', onPress: () => setModalVisible(false) }]
+                `Cool-down duration cannot exceed ${TIMINGS.MAX_COOL_DOWN} seconds`
             )
             return false
         }
@@ -287,6 +270,8 @@ export default function CreateWorkoutScreen() {
         rounds,
         warmUpDuration,
         coolDownDuration,
+        modal,
+        id,
     ])
 
     const totalSeconds = React.useMemo(() => {
@@ -344,9 +329,7 @@ export default function CreateWorkoutScreen() {
             router.replace('/(tabs)/')
         } catch (error) {
             console.error('Error saving workout:', error)
-            showAlert('Error', 'Failed to save workout', [
-                { text: 'OK', onPress: () => setModalVisible(false) },
-            ])
+            modal.showError('Error', 'Failed to save workout')
         } finally {
             setLoading(false)
         }
@@ -367,28 +350,18 @@ export default function CreateWorkoutScreen() {
     const handleDelete = useCallback(() => {
         if (!id) return
 
-        showAlert(
+        modal.showConfirm(
             'Delete Workout',
             'Are you sure you want to delete this workout?',
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                    onPress: () => setModalVisible(false),
-                },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await storageService.deleteWorkout(id)
-                        await storageService.flush()
-                        setModalVisible(false)
-                        router.replace('/(tabs)/')
-                    },
-                },
-            ]
+            async () => {
+                await storageService.deleteWorkout(id)
+                await storageService.flush()
+                router.replace('/(tabs)/')
+            },
+            'Delete',
+            'Cancel'
         )
-    }, [id, router])
+    }, [id, router, modal])
 
     return (
         <SafeAreaView edges={['bottom']} style={styles.container}>
@@ -873,11 +846,11 @@ export default function CreateWorkoutScreen() {
                 </ScrollView>
 
                 <CustomModal
-                    visible={modalVisible}
-                    title={modalTitle}
-                    message={modalMessage}
-                    buttons={modalButtons}
-                    onRequestClose={() => setModalVisible(false)}
+                    visible={modal.visible}
+                    title={modal.title}
+                    message={modal.message}
+                    buttons={modal.buttons}
+                    onRequestClose={modal.hideModal}
                 />
             </KeyboardAvoidingView>
         </SafeAreaView>

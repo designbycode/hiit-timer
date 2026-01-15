@@ -7,7 +7,6 @@ import {
     TouchableOpacity,
     FlatList,
     Dimensions,
-    Alert,
     RefreshControl,
     Animated,
 } from 'react-native'
@@ -18,25 +17,25 @@ import { storageService } from '@/libs/services/storage/StorageService'
 import { Ionicons } from '@expo/vector-icons'
 import { formatTime } from '@/libs/utils/time'
 import { WorkoutHistory } from '@/libs/types/workout'
-import { LineChart, BarChart, PieChart } from 'react-native-chart-kit'
+import { BarChart } from 'react-native-chart-kit'
 import { Header } from '@/libs/components/Header'
 import { Swipeable } from 'react-native-gesture-handler'
+import { EmptyState, StatCard, FilterButton } from '@/libs/components/ui'
+import { useModal } from '@/libs/hooks/useModal'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
-const CHART_WIDTH = SCREEN_WIDTH - spacing.sm * 4 - spacing.md // Account for all padding and margins
+const CHART_WIDTH = SCREEN_WIDTH - spacing.md * 4 // Proper padding for card containment
 
 type TabType = 'History' | 'Stats' | 'Calendar'
-type DateFilterType = 'all' | 'week' | 'month' | 'year'
-
 export default function HistoryScreen() {
     const [history, setHistory] = useState<WorkoutHistory[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [selectedTab, setSelectedTab] = useState<TabType>('History')
-    const [dateFilter, setDateFilter] = useState<DateFilterType>('all')
     const [selectedMonth, setSelectedMonth] = useState<Date>(new Date())
     const [selectedDay, setSelectedDay] = useState<number | null>(null)
     const router = useRouter()
+    const modal = useModal()
 
     useEffect(() => {
         loadHistory()
@@ -73,44 +72,25 @@ export default function HistoryScreen() {
     }
 
     const handleDeleteHistory = async (id: string) => {
-        Alert.alert(
+        modal.showConfirm(
             'Delete Workout',
             'Are you sure you want to delete this workout from history?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await storageService.deleteWorkoutHistory(id)
-                            await loadHistory()
-                        } catch (error) {
-                            console.error('Failed to delete history:', error)
-                        }
-                    },
-                },
-            ]
+            async () => {
+                try {
+                    await storageService.deleteWorkoutHistory(id)
+                    await loadHistory()
+                } catch (error) {
+                    console.error('Failed to delete history:', error)
+                }
+            },
+            'Delete',
+            'Cancel'
         )
     }
 
-    // Filter history by date range
-    const filteredHistory = useMemo(() => {
-        if (dateFilter === 'all') return history
-
-        const now = Date.now()
-        const filterDate = {
-            week: now - 7 * 24 * 60 * 60 * 1000,
-            month: now - 30 * 24 * 60 * 60 * 1000,
-            year: now - 365 * 24 * 60 * 60 * 1000,
-        }[dateFilter]
-
-        return history.filter((h) => h.completedAt >= filterDate)
-    }, [history, dateFilter])
-
     // Calculate statistics
     const stats = useMemo(() => {
-        const data = filteredHistory
+        const data = history
         if (data.length === 0) {
             return {
                 totalWorkouts: 0,
@@ -118,7 +98,6 @@ export default function HistoryScreen() {
                 avgDuration: 0,
                 totalRounds: 0,
                 mostFrequentWorkout: '',
-                workoutDistribution: [],
                 longestWorkout: null,
                 currentStreak: 0,
                 bestStreak: 0,
@@ -141,20 +120,6 @@ export default function HistoryScreen() {
             Object.entries(workoutCounts).sort(
                 ([, a], [, b]) => b - a
             )[0]?.[0] || ''
-
-        // Workout distribution for pie chart
-        const workoutDistribution = Object.entries(workoutCounts)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 5) // Top 5 workouts
-            .map(([name, count]) => ({
-                name,
-                count,
-                color: ['#FF9800', '#4CAF50', '#2196F3', '#FFC107', '#9C27B0'][
-                    Object.keys(workoutCounts).indexOf(name) % 5
-                ],
-                legendFontColor: '#FFFFFF',
-                legendFontSize: 12,
-            }))
 
         // Find longest workout
         const longestWorkout = data.reduce(
@@ -219,12 +184,11 @@ export default function HistoryScreen() {
             avgDuration: Math.round(totalDuration / data.length),
             totalRounds,
             mostFrequentWorkout,
-            workoutDistribution,
             longestWorkout,
             currentStreak,
             bestStreak,
         }
-    }, [filteredHistory])
+    }, [history])
 
     // Prepare chart data for last 7 days
     const chartData = useMemo(() => {
@@ -250,40 +214,13 @@ export default function HistoryScreen() {
         return { labels, data: dailyWorkouts }
     }, [history])
 
-    // Progress chart data (last 30 days - duration trend)
-    const progressData = useMemo(() => {
-        const last30Days = Array.from({ length: 30 }, (_, i) => {
-            const date = new Date()
-            date.setDate(date.getDate() - (29 - i))
-            date.setHours(0, 0, 0, 0)
-            return date.getTime()
-        })
-
-        const dailyDuration = last30Days.map((dayStart) => {
-            const dayEnd = dayStart + 24 * 60 * 60 * 1000
-            const dayWorkouts = history.filter(
-                (h) => h.completedAt >= dayStart && h.completedAt < dayEnd
-            )
-            return dayWorkouts.reduce((sum, h) => sum + h.duration, 0) / 60 // in minutes
-        })
-
-        const labels = last30Days.map((day, i) => {
-            if (i % 5 === 0 || i === last30Days.length - 1) {
-                return new Date(day).getDate().toString()
-            }
-            return ''
-        })
-
-        return { labels, data: dailyDuration }
-    }, [history])
-
     // Calendar data - workouts per day for selected month
     const calendarData = useMemo(() => {
         const year = selectedMonth.getFullYear()
         const month = selectedMonth.getMonth()
         const daysInMonth = new Date(year, month + 1, 0).getDate()
 
-        const monthData = Array.from({ length: daysInMonth }, (_, i) => {
+        return Array.from({ length: daysInMonth }, (_, i) => {
             const dayStart = new Date(year, month, i + 1, 0, 0, 0, 0).getTime()
             const dayEnd = dayStart + 24 * 60 * 60 * 1000
             const dayWorkouts = history.filter(
@@ -302,8 +239,6 @@ export default function HistoryScreen() {
                 workouts: dayWorkouts,
             }
         })
-
-        return monthData
     }, [history, selectedMonth])
 
     // Month statistics
@@ -345,43 +280,14 @@ export default function HistoryScreen() {
         setSelectedDay(new Date().getDate())
     }
 
-    // Get dot color based on workout count
-    const getDotColor = (count: number): string => {
-        if (count === 0) return 'transparent'
-        if (count === 1) return colors.dark.info // Blue for 1 workout
-        if (count === 2) return colors.dark.success // Green for 2 workouts
-        if (count >= 3) return colors.dark.primary // Orange for 3+ workouts
-        return 'transparent'
-    }
-
-    // Get dot size based on workout count
-    const getDotSize = (count: number): number => {
-        if (count === 0) return 0
-        if (count === 1) return 6
-        if (count === 2) return 8
-        if (count >= 3) return 10
-        return 0
-    }
-
     const renderEmptyState = () => (
-        <View style={styles.emptyContainer}>
-            <Ionicons
-                name="time-outline"
-                size={64}
-                color={colors.dark.textSecondary}
-            />
-            <Text style={styles.emptyTitle}>No Workout History</Text>
-            <Text style={styles.emptyText}>
-                Your completed workouts will appear here
-            </Text>
-            <TouchableOpacity
-                style={styles.startButton}
-                onPress={() => router.replace('/(tabs)')}
-                activeOpacity={0.7}
-            >
-                <Text style={styles.startButtonText}>Start a Workout</Text>
-            </TouchableOpacity>
-        </View>
+        <EmptyState
+            icon="time-outline"
+            title="No Workout History"
+            message="Your completed workouts will appear here"
+            actionLabel="Start a Workout"
+            onAction={() => router.replace('/(tabs)')}
+        />
     )
 
     // Tab navigation data
@@ -409,7 +315,11 @@ export default function HistoryScreen() {
             <Ionicons
                 name={getTabIcon(item)}
                 size={20}
-                color={selectedTab === item ? colors.dark.primary : colors.dark.textSecondary}
+                color={
+                    selectedTab === item
+                        ? colors.dark.primary
+                        : colors.dark.textSecondary
+                }
             />
             <Text
                 style={[
@@ -449,96 +359,121 @@ export default function HistoryScreen() {
         const hasPauses = (item.pauseCount ?? 0) > 0
         const hasSkips = (item.skipCount ?? 0) > 0
         const isPerfect = !hasPauses && !hasSkips
-        
+
         // Format date nicely
         const date = new Date(item.completedAt)
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        const dateStr = date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        })
+        const timeStr = date.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+        })
 
         return (
             <Swipeable
-                renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
+                renderRightActions={(progress, dragX) =>
+                    renderRightActions(progress, dragX, item)
+                }
                 overshootRight={false}
             >
-            <View style={styles.historyCard}>
-                {/* Title with achievement badge */}
-                <View style={styles.historyTitleRow}>
-                    <Text style={styles.historyTitle}>{item.workoutName}</Text>
-                    {isPerfect && (
-                        <View style={styles.achievementBadge}>
-                            <Ionicons name="star" size={14} color={colors.dark.warning} />
+                <View style={styles.historyCard}>
+                    {/* Title with achievement badge */}
+                    <View style={styles.historyTitleRow}>
+                        <Text style={styles.historyTitle}>
+                            {item.workoutName}
+                        </Text>
+                        {isPerfect && (
+                            <View style={styles.achievementBadge}>
+                                <Ionicons
+                                    name="star"
+                                    size={14}
+                                    color={colors.dark.warning}
+                                />
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Date and time */}
+                    <Text style={styles.historyDate}>
+                        {dateStr} • {timeStr}
+                    </Text>
+
+                    {/* Main stats */}
+                    <View style={styles.historyMainStats}>
+                        <View style={styles.mainStatItem}>
+                            <Ionicons
+                                name="time-outline"
+                                size={20}
+                                color={colors.dark.primary}
+                            />
+                            <Text style={styles.mainStatValue}>
+                                {item.duration
+                                    ? formatTime(item.duration)
+                                    : '00:00'}
+                            </Text>
+                        </View>
+                        <View style={styles.mainStatItem}>
+                            <Ionicons
+                                name="repeat-outline"
+                                size={20}
+                                color={colors.dark.primary}
+                            />
+                            <Text style={styles.mainStatValue}>
+                                {item.rounds || 0} rounds
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Achievement or interruptions */}
+                    {isPerfect ? (
+                        <View style={styles.perfectBadge}>
+                            <Ionicons
+                                name="trophy"
+                                size={16}
+                                color={colors.dark.success}
+                            />
+                            <Text style={styles.perfectText}>
+                                Perfect Session
+                            </Text>
+                        </View>
+                    ) : (
+                        <View style={styles.interruptionsRow}>
+                            {hasPauses && (
+                                <View style={styles.interruptionItem}>
+                                    <Ionicons
+                                        name="pause-circle-outline"
+                                        size={16}
+                                        color={colors.dark.warning}
+                                    />
+                                    <Text style={styles.interruptionText}>
+                                        {item.pauseCount}{' '}
+                                        {item.pauseCount === 1
+                                            ? 'pause'
+                                            : 'pauses'}
+                                    </Text>
+                                </View>
+                            )}
+                            {hasSkips && (
+                                <View style={styles.interruptionItem}>
+                                    <Ionicons
+                                        name="play-skip-forward-outline"
+                                        size={16}
+                                        color={colors.dark.info}
+                                    />
+                                    <Text style={styles.interruptionText}>
+                                        {item.skipCount}{' '}
+                                        {item.skipCount === 1
+                                            ? 'skip'
+                                            : 'skips'}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     )}
                 </View>
-                
-                {/* Date and time */}
-                <Text style={styles.historyDate}>
-                    {dateStr} • {timeStr}
-                </Text>
-
-                {/* Main stats */}
-                <View style={styles.historyMainStats}>
-                    <View style={styles.mainStatItem}>
-                        <Ionicons
-                            name="time-outline"
-                            size={20}
-                            color={colors.dark.primary}
-                        />
-                        <Text style={styles.mainStatValue}>
-                            {item.duration ? formatTime(item.duration) : '00:00'}
-                        </Text>
-                    </View>
-                    <View style={styles.mainStatItem}>
-                        <Ionicons
-                            name="repeat-outline"
-                            size={20}
-                            color={colors.dark.primary}
-                        />
-                        <Text style={styles.mainStatValue}>
-                            {item.rounds || 0} rounds
-                        </Text>
-                    </View>
-                </View>
-
-                {/* Achievement or interruptions */}
-                {isPerfect ? (
-                    <View style={styles.perfectBadge}>
-                        <Ionicons
-                            name="trophy"
-                            size={16}
-                            color={colors.dark.success}
-                        />
-                        <Text style={styles.perfectText}>Perfect Session</Text>
-                    </View>
-                ) : (
-                    <View style={styles.interruptionsRow}>
-                        {hasPauses && (
-                            <View style={styles.interruptionItem}>
-                                <Ionicons
-                                    name="pause-circle-outline"
-                                    size={16}
-                                    color={colors.dark.warning}
-                                />
-                                <Text style={styles.interruptionText}>
-                                    {item.pauseCount} {item.pauseCount === 1 ? 'pause' : 'pauses'}
-                                </Text>
-                            </View>
-                        )}
-                        {hasSkips && (
-                            <View style={styles.interruptionItem}>
-                                <Ionicons
-                                    name="play-skip-forward-outline"
-                                    size={16}
-                                    color={colors.dark.info}
-                                />
-                                <Text style={styles.interruptionText}>
-                                    {item.skipCount} {item.skipCount === 1 ? 'skip' : 'skips'}
-                                </Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-            </View>
             </Swipeable>
         )
     }
@@ -560,66 +495,39 @@ export default function HistoryScreen() {
             {/* Overview Section */}
             <Text style={styles.statsHeading}>Overview</Text>
             <View style={styles.overviewGrid}>
-                {/* Total Workouts */}
-                <View style={styles.overviewCard}>
-                    <View style={[styles.iconCircle, { backgroundColor: 'rgba(255, 152, 0, 0.2)' }]}>
-                        <Ionicons
-                            name="fitness"
-                            size={24}
-                            color={colors.dark.primary}
-                        />
-                    </View>
-                    <Text style={styles.overviewValue}>
-                        {stats.totalWorkouts}
-                    </Text>
-                    <Text style={styles.overviewLabel}>Total Workouts</Text>
-                </View>
-
-                {/* Current Streak */}
-                <View style={styles.overviewCard}>
-                    <View style={[styles.iconCircle, { backgroundColor: 'rgba(255, 87, 34, 0.2)' }]}>
-                        <Ionicons
-                            name="flame"
-                            size={24}
-                            color="#FF5722"
-                        />
-                    </View>
-                    <Text style={styles.overviewValue}>
-                        {stats.currentStreak}
-                    </Text>
-                    <Text style={styles.overviewLabel}>Current Streak</Text>
-                    <Text style={styles.overviewSubtext}>Best: {stats.bestStreak}</Text>
-                </View>
-
-                {/* Total Time */}
-                <View style={styles.overviewCard}>
-                    <View style={[styles.iconCircle, { backgroundColor: 'rgba(0, 188, 212, 0.2)' }]}>
-                        <Ionicons
-                            name="time"
-                            size={24}
-                            color="#00BCD4"
-                        />
-                    </View>
-                    <Text style={styles.overviewValue}>
-                        {formatTime(stats.totalDuration)}
-                    </Text>
-                    <Text style={styles.overviewLabel}>Total Time</Text>
-                </View>
-
-                {/* Total Rounds */}
-                <View style={styles.overviewCard}>
-                    <View style={[styles.iconCircle, { backgroundColor: 'rgba(96, 125, 139, 0.2)' }]}>
-                        <Ionicons
-                            name="repeat"
-                            size={24}
-                            color="#607D8B"
-                        />
-                    </View>
-                    <Text style={styles.overviewValue}>
-                        {stats.totalRounds}
-                    </Text>
-                    <Text style={styles.overviewLabel}>Total Rounds</Text>
-                </View>
+                <StatCard
+                    icon="fitness"
+                    iconColor={colors.dark.primary}
+                    iconBackground="rgba(255, 152, 0, 0.2)"
+                    value={stats.totalWorkouts}
+                    label="Total Workouts"
+                    style={styles.statCard}
+                />
+                <StatCard
+                    icon="flame"
+                    iconColor="#FF5722"
+                    iconBackground="rgba(255, 87, 34, 0.2)"
+                    value={stats.currentStreak}
+                    label="Current Streak"
+                    subtext={`Best: ${stats.bestStreak}`}
+                    style={styles.statCard}
+                />
+                <StatCard
+                    icon="time"
+                    iconColor="#00BCD4"
+                    iconBackground="rgba(0, 188, 212, 0.2)"
+                    value={formatTime(stats.totalDuration)}
+                    label="Total Time"
+                    style={styles.statCard}
+                />
+                <StatCard
+                    icon="repeat"
+                    iconColor="#607D8B"
+                    iconBackground="rgba(96, 125, 139, 0.2)"
+                    value={stats.totalRounds}
+                    label="Total Rounds"
+                    style={styles.statCard}
+                />
             </View>
 
             {/* This Week Section */}
@@ -627,76 +535,72 @@ export default function HistoryScreen() {
                 <>
                     <Text style={styles.statsHeading}>This Week</Text>
                     <View style={styles.chartContainer}>
-                        <View style={styles.chartWrapper}>
-                            <BarChart
-                                data={{
-                                    labels: chartData.labels,
-                                    datasets: [
-                                        {
-                                            data:
-                                                chartData.data.length > 0
-                                                    ? chartData.data
-                                                    : [0],
-                                        },
-                                    ],
-                                }}
-                                width={CHART_WIDTH}
-                                height={220}
-                                yAxisLabel=""
-                                yAxisSuffix=""
-                                chartConfig={{
-                                    backgroundColor: colors.dark.surface,
-                                    backgroundGradientFrom: colors.dark.surface,
-                                    backgroundGradientTo: colors.dark.surface,
-                                    decimalPlaces: 0,
-                                    color: (opacity = 1) =>
-                                        `rgba(255, 152, 0, ${opacity})`,
-                                    labelColor: (opacity = 1) =>
-                                        `rgba(255, 255, 255, ${opacity})`,
-                                    style: { borderRadius: 16 },
-                                    barPercentage: 0.5,
-                                }}
-                                style={styles.chart}
-                                fromZero
-                            />
-                        </View>
+                        <BarChart
+                            data={{
+                                labels: chartData.labels,
+                                datasets: [
+                                    {
+                                        data:
+                                            chartData.data.length > 0
+                                                ? chartData.data
+                                                : [0],
+                                    },
+                                ],
+                            }}
+                            width={CHART_WIDTH}
+                            height={220}
+                            yAxisLabel=""
+                            yAxisSuffix=""
+                            chartConfig={{
+                                backgroundColor: colors.dark.surface,
+                                backgroundGradientFrom: colors.dark.surface,
+                                backgroundGradientTo: colors.dark.surface,
+                                decimalPlaces: 0,
+                                color: (opacity = 1) =>
+                                    `rgba(255, 152, 0, ${opacity})`,
+                                labelColor: (opacity = 1) =>
+                                    `rgba(255, 255, 255, ${opacity})`,
+                                style: { borderRadius: 16 },
+                                barPercentage: 0.5,
+                                propsForBackgroundLines: {
+                                    strokeWidth: 0,
+                                },
+                            }}
+                            style={styles.chart}
+                            fromZero
+                        />
                         <Text style={styles.chartSubtext}>
-                            {chartData.data.reduce((a, b) => a + b, 0)} workout{chartData.data.reduce((a, b) => a + b, 0) !== 1 ? 's' : ''} this week
+                            {chartData.data.reduce((a, b) => a + b, 0)} workout
+                            {chartData.data.reduce((a, b) => a + b, 0) !== 1
+                                ? 's'
+                                : ''}{' '}
+                            this week
                         </Text>
                     </View>
 
                     {/* Performance Section */}
                     <Text style={styles.statsHeading}>Performance</Text>
                     <View style={styles.performanceGrid}>
-                        {/* Avg Duration */}
-                        <View style={styles.performanceCard}>
-                            <View style={[styles.iconCircle, { backgroundColor: 'rgba(0, 188, 212, 0.2)' }]}>
-                                <Ionicons
-                                    name="speedometer"
-                                    size={24}
-                                    color="#00BCD4"
-                                />
-                            </View>
-                            <Text style={styles.performanceValue}>
-                                {formatTime(stats.avgDuration)}
-                            </Text>
-                            <Text style={styles.performanceLabel}>Avg Duration</Text>
-                        </View>
-
-                        {/* Longest */}
-                        <View style={styles.performanceCard}>
-                            <View style={[styles.iconCircle, { backgroundColor: 'rgba(255, 193, 7, 0.2)' }]}>
-                                <Ionicons
-                                    name="trophy"
-                                    size={24}
-                                    color="#FFC107"
-                                />
-                            </View>
-                            <Text style={styles.performanceValue}>
-                                {stats.longestWorkout ? formatTime(stats.longestWorkout.duration) : '00:00'}
-                            </Text>
-                            <Text style={styles.performanceLabel}>Longest</Text>
-                        </View>
+                        <StatCard
+                            icon="speedometer"
+                            iconColor="#00BCD4"
+                            iconBackground="rgba(0, 188, 212, 0.2)"
+                            value={formatTime(stats.avgDuration)}
+                            label="Avg Duration"
+                            style={styles.performanceCard}
+                        />
+                        <StatCard
+                            icon="trophy"
+                            iconColor="#FFC107"
+                            iconBackground="rgba(255, 193, 7, 0.2)"
+                            value={
+                                stats.longestWorkout
+                                    ? formatTime(stats.longestWorkout.duration)
+                                    : '00:00'
+                            }
+                            label="Longest"
+                            style={styles.performanceCard}
+                        />
                     </View>
 
                     {/* More Stats Section */}
@@ -704,15 +608,20 @@ export default function HistoryScreen() {
                     <View style={styles.moreStatsContainer}>
                         {/* This Month */}
                         <View style={styles.moreStatsRow}>
-                            <Text style={styles.moreStatsLabel}>This Month</Text>
+                            <Text style={styles.moreStatsLabel}>
+                                This Month
+                            </Text>
                             <Text style={styles.moreStatsValue}>
-                                {monthStats.totalWorkouts} workout{monthStats.totalWorkouts !== 1 ? 's' : ''}
+                                {monthStats.totalWorkouts} workout
+                                {monthStats.totalWorkouts !== 1 ? 's' : ''}
                             </Text>
                         </View>
 
                         {/* Favorite Workout */}
                         <View style={styles.moreStatsRow}>
-                            <Text style={styles.moreStatsLabel}>Favorite Workout</Text>
+                            <Text style={styles.moreStatsLabel}>
+                                Favorite Workout
+                            </Text>
                             <Text style={styles.moreStatsValue}>
                                 {stats.mostFrequentWorkout || 'N/A'}
                             </Text>
@@ -721,9 +630,13 @@ export default function HistoryScreen() {
                         {/* Last Workout */}
                         {history.length > 0 && (
                             <View style={styles.moreStatsRow}>
-                                <Text style={styles.moreStatsLabel}>Last Workout</Text>
+                                <Text style={styles.moreStatsLabel}>
+                                    Last Workout
+                                </Text>
                                 <Text style={styles.moreStatsValue}>
-                                    {new Date(history[0].completedAt).toLocaleDateString()}
+                                    {new Date(
+                                        history[0].completedAt
+                                    ).toLocaleDateString()}
                                 </Text>
                             </View>
                         )}
@@ -779,8 +692,13 @@ export default function HistoryScreen() {
                             />
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={goToToday} activeOpacity={0.7}>
-                            <Text style={styles.calendarMonth}>{monthName}</Text>
+                        <TouchableOpacity
+                            onPress={goToToday}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.calendarMonth}>
+                                {monthName}
+                            </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -868,7 +786,8 @@ export default function HistoryScreen() {
                                         <Text
                                             style={[
                                                 styles.calendarDayText,
-                                                isToday && styles.calendarDayTextToday,
+                                                isToday &&
+                                                    styles.calendarDayTextToday,
                                             ]}
                                         >
                                             {dayNumber}
@@ -877,7 +796,10 @@ export default function HistoryScreen() {
                                             <View
                                                 style={[
                                                     styles.workoutIndicatorDot,
-                                                    { backgroundColor: dotColor },
+                                                    {
+                                                        backgroundColor:
+                                                            dotColor,
+                                                    },
                                                 ]}
                                             />
                                         )}
@@ -891,15 +813,30 @@ export default function HistoryScreen() {
                 {/* Legend */}
                 <View style={styles.calendarLegend}>
                     <View style={styles.legendItem}>
-                        <View style={[styles.legendDot, { backgroundColor: colors.dark.primary }]} />
+                        <View
+                            style={[
+                                styles.legendDot,
+                                { backgroundColor: colors.dark.primary },
+                            ]}
+                        />
                         <Text style={styles.legendText}>1 workout</Text>
                     </View>
                     <View style={styles.legendItem}>
-                        <View style={[styles.legendDot, { backgroundColor: '#FFA500' }]} />
+                        <View
+                            style={[
+                                styles.legendDot,
+                                { backgroundColor: '#FFA500' },
+                            ]}
+                        />
                         <Text style={styles.legendText}>2 workouts</Text>
                     </View>
                     <View style={styles.legendItem}>
-                        <View style={[styles.legendDot, { backgroundColor: '#FF6B6B' }]} />
+                        <View
+                            style={[
+                                styles.legendDot,
+                                { backgroundColor: '#FF6B6B' },
+                            ]}
+                        />
                         <Text style={styles.legendText}>3+ workouts</Text>
                     </View>
                 </View>
@@ -907,15 +844,19 @@ export default function HistoryScreen() {
                 {/* Selected Day Details */}
                 {selectedDay && (
                     <>
-                        {calendarData.find((d) => d.day === selectedDay)?.count === 0 ? (
+                        {calendarData.find((d) => d.day === selectedDay)
+                            ?.count === 0 ? (
                             <View style={styles.selectedDayCard}>
                                 <Text style={styles.selectedDayDateText}>
-                                    {selectedMonth?.toLocaleDateString('en-US', {
-                                        weekday: 'long',
-                                        month: 'long',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                    })}
+                                    {selectedMonth?.toLocaleDateString(
+                                        'en-US',
+                                        {
+                                            weekday: 'long',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            year: 'numeric',
+                                        }
+                                    )}
                                 </Text>
                                 <View style={styles.noWorkoutContainer}>
                                     <Ionicons
@@ -931,15 +872,23 @@ export default function HistoryScreen() {
                         ) : (
                             <View style={styles.selectedDayCard}>
                                 <Text style={styles.selectedDayDateText}>
-                                    {selectedMonth?.toLocaleDateString('en-US', {
-                                        weekday: 'long',
-                                        month: 'long',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                    })}
+                                    {selectedMonth?.toLocaleDateString(
+                                        'en-US',
+                                        {
+                                            weekday: 'long',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            year: 'numeric',
+                                        }
+                                    )}
                                 </Text>
                                 <Text style={styles.selectedDaySubtext}>
-                                    {calendarData.find((d) => d.day === selectedDay)?.count} workout completed
+                                    {
+                                        calendarData.find(
+                                            (d) => d.day === selectedDay
+                                        )?.count
+                                    }{' '}
+                                    workout completed
                                 </Text>
 
                                 {calendarData
@@ -949,11 +898,17 @@ export default function HistoryScreen() {
                                             key={workout.id}
                                             style={styles.workoutDetailCard}
                                         >
-                                            <Text style={styles.workoutDetailName}>
+                                            <Text
+                                                style={styles.workoutDetailName}
+                                            >
                                                 {workout.workoutName}
                                             </Text>
-                                            <Text style={styles.workoutDetailTime}>
-                                                {new Date(workout.completedAt).toLocaleTimeString([], {
+                                            <Text
+                                                style={styles.workoutDetailTime}
+                                            >
+                                                {new Date(
+                                                    workout.completedAt
+                                                ).toLocaleTimeString([], {
                                                     hour: '2-digit',
                                                     minute: '2-digit',
                                                 })}
@@ -968,52 +923,10 @@ export default function HistoryScreen() {
         )
     }
 
-    const renderDateFilter = () => (
-        <View style={styles.filterContainer}>
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterScrollContent}
-            >
-                {(['all', 'week', 'month', 'year'] as DateFilterType[]).map(
-                    (filter) => (
-                        <TouchableOpacity
-                            key={filter}
-                            style={[
-                                styles.filterButton,
-                                dateFilter === filter &&
-                                    styles.filterButtonActive,
-                            ]}
-                            onPress={() => setDateFilter(filter)}
-                            activeOpacity={0.7}
-                        >
-                            <Text
-                                style={[
-                                    styles.filterButtonText,
-                                    dateFilter === filter &&
-                                        styles.filterButtonTextActive,
-                                ]}
-                            >
-                                {filter === 'all'
-                                    ? 'All Time'
-                                    : filter === 'week'
-                                      ? 'This Week'
-                                      : filter === 'month'
-                                        ? 'This Month'
-                                        : 'This Year'}
-                            </Text>
-                        </TouchableOpacity>
-                    )
-                )}
-            </ScrollView>
-        </View>
-    )
-
     const renderHistorySection = () => (
         <View style={styles.sectionContainer}>
-            {renderDateFilter()}
             <FlatList
-                data={filteredHistory}
+                data={history}
                 renderItem={renderHistoryItem}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.historyList}
@@ -1027,17 +940,11 @@ export default function HistoryScreen() {
                     />
                 }
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Ionicons
-                            name="filter-outline"
-                            size={64}
-                            color={colors.dark.textSecondary}
-                        />
-                        <Text style={styles.emptyTitle}>No Workouts Found</Text>
-                        <Text style={styles.emptyText}>
-                            Try adjusting your filter or start a new workout
-                        </Text>
-                    </View>
+                    <EmptyState
+                        icon="filter-outline"
+                        title="No Workouts Found"
+                        message="Try adjusting your filter or start a new workout"
+                    />
                 }
             />
         </View>
@@ -1045,10 +952,7 @@ export default function HistoryScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <Header
-                title="Workout History"
-                hideRightIcon
-            />
+            <Header title="Workout History" hideRightIcon />
 
             {/* Custom Tab Navigation */}
             <View style={styles.tabNavigation}>
@@ -1099,7 +1003,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.xs,
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.md,
         paddingHorizontal: spacing.md,
         marginRight: spacing.xs,
         borderBottomWidth: 2,
@@ -1117,7 +1021,7 @@ const styles = StyleSheet.create({
         color: colors.dark.primary,
     },
 
-    // Loading & Empty States
+    // Loading State
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -1126,36 +1030,6 @@ const styles = StyleSheet.create({
     loadingText: {
         fontSize: fontSizes.md,
         color: colors.dark.textSecondary,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: spacing.xl,
-    },
-    emptyTitle: {
-        fontSize: fontSizes.xl,
-        fontWeight: 'bold',
-        color: colors.dark.text,
-        marginTop: spacing.lg,
-        marginBottom: spacing.sm,
-    },
-    emptyText: {
-        fontSize: fontSizes.md,
-        color: colors.dark.textSecondary,
-        textAlign: 'center',
-        marginBottom: spacing.xl,
-    },
-    startButton: {
-        backgroundColor: colors.dark.primary,
-        paddingHorizontal: spacing.xl,
-        paddingVertical: spacing.md,
-        borderRadius: 12,
-    },
-    startButtonText: {
-        fontSize: fontSizes.md,
-        fontWeight: '600',
-        color: colors.dark.text,
     },
 
     // History Section
@@ -1262,7 +1136,7 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
         marginTop: spacing.md,
     },
-    
+
     // Overview Grid (2x2)
     overviewGrid: {
         flexDirection: 'row',
@@ -1271,42 +1145,10 @@ const styles = StyleSheet.create({
         gap: spacing.sm,
         marginBottom: spacing.md,
     },
-    overviewCard: {
-        backgroundColor: colors.dark.surface,
-        borderRadius: 16,
-        padding: spacing.md,
+    statCard: {
         width: (SCREEN_WIDTH - spacing.md * 2 - spacing.sm) / 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-        minHeight: 140,
     },
-    iconCircle: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: spacing.sm,
-    },
-    overviewValue: {
-        fontSize: fontSizes['3xl'],
-        fontWeight: 'bold',
-        color: colors.dark.text,
-        marginBottom: spacing.xs,
-    },
-    overviewLabel: {
-        fontSize: fontSizes.sm,
-        color: colors.dark.textSecondary,
-        textAlign: 'center',
-    },
-    overviewSubtext: {
-        fontSize: fontSizes.xs,
-        color: colors.dark.muted,
-        marginTop: spacing.xs,
-    },
-    
+
     // Performance Grid (2 cards side by side)
     performanceGrid: {
         flexDirection: 'row',
@@ -1315,28 +1157,9 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
     },
     performanceCard: {
-        backgroundColor: colors.dark.surface,
-        borderRadius: 16,
-        padding: spacing.md,
         flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-        minHeight: 140,
     },
-    performanceValue: {
-        fontSize: fontSizes['2xl'],
-        fontWeight: 'bold',
-        color: colors.dark.text,
-        marginBottom: spacing.xs,
-    },
-    performanceLabel: {
-        fontSize: fontSizes.sm,
-        color: colors.dark.textSecondary,
-        textAlign: 'center',
-    },
-    
+
     // More Stats Section
     moreStatsContainer: {
         backgroundColor: colors.dark.surface,
@@ -1371,17 +1194,11 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.dark.border,
         alignItems: 'center',
-        overflow: 'hidden',
         marginBottom: spacing.md,
     },
     chart: {
         borderRadius: 16,
         marginVertical: 0,
-    },
-    chartWrapper: {
-        width: '100%',
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     chartSubtext: {
         fontSize: fontSizes.sm,
@@ -1389,63 +1206,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: spacing.sm,
     },
-    infoCard: {
-        backgroundColor: colors.dark.surface,
-        borderRadius: 10,
-        padding: spacing.sm,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-        marginBottom: spacing.sm,
-    },
-    infoCardContent: {
-        flex: 1,
-    },
-    infoCardLabel: {
-        fontSize: fontSizes.sm,
-        color: colors.dark.textSecondary,
-        marginBottom: spacing.xs,
-    },
-    infoCardText: {
-        fontSize: fontSizes.md,
-        fontWeight: '600',
-        color: colors.dark.text,
-    },
-
-    // Filter Section
-    filterContainer: {
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.sm,
-        backgroundColor: colors.dark.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.dark.border,
-    },
-    filterScrollContent: {
-        gap: spacing.xs,
-    },
-    filterButton: {
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs,
-        borderRadius: 8,
-        backgroundColor: colors.dark.background,
-        borderWidth: 1,
-        borderColor: colors.dark.border,
-    },
-    filterButtonActive: {
-        backgroundColor: colors.dark.primary,
-        borderColor: colors.dark.primary,
-    },
-    filterButtonText: {
-        fontSize: fontSizes.sm,
-        color: colors.dark.textSecondary,
-        fontWeight: '600',
-    },
-    filterButtonTextActive: {
-        color: colors.dark.background,
-    },
-
     // Calendar Section
     calendarMainContainer: {
         backgroundColor: colors.dark.surface,
