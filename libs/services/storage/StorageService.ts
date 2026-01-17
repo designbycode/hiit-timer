@@ -228,6 +228,55 @@ class StorageService {
       console.error('Error clearing workout history:', error);
     }
   }
+
+  /**
+   * Clear app cache (timer state, last workout, filters)
+   * This doesn't delete user data like workouts, settings, or history
+   */
+  async clearCache(): Promise<void> {
+    try {
+      await Promise.all([
+        AsyncStorage.removeItem(STORAGE_KEYS.TIMER_STATE),
+        AsyncStorage.removeItem(STORAGE_KEYS.LAST_WORKOUT),
+        AsyncStorage.removeItem(STORAGE_KEYS.WORKOUT_FILTER),
+      ]);
+      console.log('Cache cleared successfully');
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear ALL app data (workouts, settings, history, cache, everything)
+   * WARNING: This is irreversible!
+   */
+  async clearAllData(): Promise<void> {
+    try {
+      await AsyncStorage.clear();
+      console.log('All app data cleared successfully');
+    } catch (error) {
+      console.error('Error clearing all data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get storage info (how much data is stored)
+   */
+  async getStorageInfo(): Promise<{ keys: string[]; totalKeys: number }> {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const appKeys = keys.filter(key => key.startsWith('@hiit_timer:'));
+      return {
+        keys: appKeys,
+        totalKeys: appKeys.length,
+      };
+    } catch (error) {
+      console.error('Error getting storage info:', error);
+      return { keys: [], totalKeys: 0 };
+    }
+  }
 }
 
 export const storageService = new StorageService();
