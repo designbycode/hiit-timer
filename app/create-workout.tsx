@@ -326,7 +326,7 @@ export default function CreateWorkoutScreen() {
 
             await storageService.saveWorkout(workout)
             await storageService.flush()
-            router.replace('/(tabs)/')
+            router.replace('/(tabs)')
         } catch (error) {
             console.error('Error saving workout:', error)
             modal.showError('Error', 'Failed to save workout')
@@ -356,7 +356,7 @@ export default function CreateWorkoutScreen() {
             async () => {
                 await storageService.deleteWorkout(id)
                 await storageService.flush()
-                router.replace('/(tabs)/')
+                router.replace('/')
             },
             'Delete',
             'Cancel'
