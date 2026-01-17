@@ -195,19 +195,20 @@ export default function HistoryScreen() {
     const chartData = useMemo(() => {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
-        
+
         // Get the day of week (0 = Sunday, 1 = Monday, etc.)
         const currentDayOfWeek = today.getDay()
-        
+
         // Calculate days since last Monday (0 = Monday, 6 = Sunday)
         // If today is Sunday (0), we want 6 days back. If Monday (1), we want 0 days back
-        const daysSinceMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1
-        
+        const daysSinceMonday =
+            currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1
+
         // Get last Monday
         const lastMonday = new Date(today)
         lastMonday.setDate(today.getDate() - daysSinceMonday)
         lastMonday.setHours(0, 0, 0, 0)
-        
+
         // Generate array of 7 days starting from Monday
         const last7Days = Array.from({ length: 7 }, (_, i) => {
             const date = new Date(lastMonday)
@@ -1026,6 +1027,14 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: colors.dark.border,
         backgroundColor: colors.dark.surface,
+        shadowColor: colors.dark.primary,
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.5,
+        shadowRadius: 12,
+        elevation: 18,
     },
     tabList: {
         paddingHorizontal: spacing.sm,
