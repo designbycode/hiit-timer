@@ -25,21 +25,16 @@ export default function RootLayout() {
   useEffect(() => {
     const loadAppData = async () => {
       try {
-        console.log('Loading settings...');
         await loadSettings();
-        console.log('Settings loaded');
         
         // Check if onboarding has been completed
         const onboardingCompleted = await storageService.isOnboardingCompleted();
         setShowOnboarding(!onboardingCompleted);
-        console.log('Onboarding completed:', onboardingCompleted);
       } catch (error) {
         console.error('Failed to load settings:', error);
       } finally {
         // Hide native splash, keep custom splash overlay visible until it finishes its own timer
-        console.log('Hiding native splash');
         await SplashScreen.hideAsync();
-        console.log('Native splash hidden');
       }
     };
     
@@ -47,12 +42,10 @@ export default function RootLayout() {
   }, [loadSettings]);
 
   const handleSplashFinish = () => {
-    console.log('Splash finish called');
     setIsSplashVisible(false);
   };
 
   const handleOnboardingComplete = async () => {
-    console.log('Onboarding complete');
     await storageService.setOnboardingCompleted();
     setShowOnboarding(false);
   };

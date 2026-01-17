@@ -240,7 +240,6 @@ class StorageService {
         AsyncStorage.removeItem(STORAGE_KEYS.LAST_WORKOUT),
         AsyncStorage.removeItem(STORAGE_KEYS.WORKOUT_FILTER),
       ]);
-      console.log('Cache cleared successfully');
     } catch (error) {
       console.error('Error clearing cache:', error);
       throw error;
@@ -254,7 +253,6 @@ class StorageService {
   async clearAllData(): Promise<void> {
     try {
       await AsyncStorage.clear();
-      console.log('All app data cleared successfully');
     } catch (error) {
       console.error('Error clearing all data:', error);
       throw error;

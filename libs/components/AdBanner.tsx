@@ -22,9 +22,6 @@ export function AdBanner({ unitId, size, style }: AdBannerProps) {
                 setAdModule(module)
                 setIsLoading(false)
             } catch (error) {
-                console.log(
-                    'AdMob not available (Expo Go) - will work in development build'
-                )
                 setIsLoading(false)
             }
         }
@@ -94,9 +91,7 @@ export function AdBanner({ unitId, size, style }: AdBannerProps) {
                 requestOptions={{
                     requestNonPersonalizedAdsOnly: false,
                 }}
-                onAdLoaded={() => {
-                    console.log('Banner ad loaded')
-                }}
+                onAdLoaded={() => {}}
                 onAdFailedToLoad={(error: any) => {
                     console.warn('Banner ad failed to load:', error)
                 }}
