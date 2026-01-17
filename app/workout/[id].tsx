@@ -342,12 +342,7 @@ export default function WorkoutScreen() {
         if (timerState.phase === Phase.COMPLETE) return 1
 
         // Progress = elapsed / total (always increases from 0 to 1)
-        const progress = Math.max(
-            0,
-            Math.min(1, elapsedTime / totalWorkoutDuration)
-        )
-
-        return progress
+        return Math.max(0, Math.min(1, elapsedTime / totalWorkoutDuration))
     }, [totalWorkoutDuration, elapsedTime, timerState.phase])
 
     useEffect(() => {
@@ -422,7 +417,9 @@ export default function WorkoutScreen() {
             <Header
                 title="ACTIVE WORKOUT"
                 onBackPress={handleStop}
-                onRightPress={currentWorkout.isPreset ? undefined : handleEditWorkout}
+                onRightPress={
+                    currentWorkout.isPreset ? undefined : handleEditWorkout
+                }
                 rightIconName="create-outline"
                 hideRightIcon={currentWorkout.isPreset}
             />
@@ -440,12 +437,18 @@ export default function WorkoutScreen() {
                         style={styles.muteButton}
                         onPress={() => setWorkoutMuted(!workoutMuted)}
                         accessibilityRole="button"
-                        accessibilityLabel={workoutMuted ? "Unmute workout" : "Mute workout"}
+                        accessibilityLabel={
+                            workoutMuted ? 'Unmute workout' : 'Mute workout'
+                        }
                     >
                         <Ionicons
-                            name={workoutMuted ? "volume-mute" : "volume-high"}
+                            name={workoutMuted ? 'volume-mute' : 'volume-high'}
                             size={24}
-                            color={workoutMuted ? "#ff6b6b" : "rgba(255, 255, 255, 0.7)"}
+                            color={
+                                workoutMuted
+                                    ? '#ff6b6b'
+                                    : 'rgba(255, 255, 255, 0.7)'
+                            }
                         />
                     </TouchableOpacity>
 

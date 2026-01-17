@@ -78,8 +78,8 @@ class AlertService {
     
     const phaseName = phaseNames[phase];
     // Only announce round number for WORK phase
-    if (phase === Phase.WORK && round !== undefined) {
-      return `${phaseName}, Round ${round + 1}`;
+    if (phase === Phase.WORK && round !== undefined && round > 0) {
+      return `${phaseName}, Round ${round}`;
     }
     return phaseName;
   }

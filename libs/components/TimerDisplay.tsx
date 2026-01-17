@@ -187,12 +187,12 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = React.memo(
                         </TouchableOpacity>
 
                         {/* Round indicator - absolute positioned at bottom */}
-                        {!showStart && !showResume && totalRounds > 0 && (
+                        {!showStart && !showResume && totalRounds > 0 && timerState.currentRound > 0 && (
                             <View style={styles.roundContainer}>
                                 <Text style={styles.roundText}>
                                     Round{' '}
                                     {Math.min(
-                                        timerState.currentRound + 1,
+                                        timerState.currentRound,
                                         totalRounds
                                     )}{' '}
                                     of {totalRounds}

@@ -9,8 +9,7 @@ export class TimerEngine {
   private stateManager: TimerStateManager;
   private animationFrameId: number | null = null;
   private config: TimerEngineConfig;
-  private phaseSequence: Phase[] = [];
-  private phaseDurations: Map<Phase, number> = new Map();
+  private phaseSequence: Array<{ phase: Phase; round: number; duration: number }> = [];
   private currentPhaseIndex = 0;
   private lastUpdateTime = 0;
   private audioManager = audioManager;
@@ -30,33 +29,59 @@ export class TimerEngine {
     if (!this.workout) return;
 
     this.phaseSequence = [];
-    this.phaseDurations.clear();
 
-    this.phaseDurations.set(Phase.COUNTDOWN, TIMINGS.COUNTDOWN_DURATION);
-    this.phaseSequence.push(Phase.COUNTDOWN);
+    // Countdown phase (round 0)
+    this.phaseSequence.push({
+      phase: Phase.COUNTDOWN,
+      round: 0,
+      duration: TIMINGS.COUNTDOWN_DURATION,
+    });
 
+    // Warm-up phase (round 0)
     if (this.workout.warmUpDuration && this.workout.warmUpDuration > 0) {
-      this.phaseDurations.set(Phase.WARM_UP, this.workout.warmUpDuration);
-      this.phaseSequence.push(Phase.WARM_UP);
+      this.phaseSequence.push({
+        phase: Phase.WARM_UP,
+        round: 0,
+        duration: this.workout.warmUpDuration,
+      });
     }
 
+    // Work and Rest phases for each round
     for (let i = 0; i < this.workout.rounds; i++) {
-      this.phaseDurations.set(Phase.WORK, this.workout.workDuration);
-      this.phaseSequence.push(Phase.WORK);
+      const roundNumber = i + 1; // Rounds are 1-indexed for display
 
+      // Work phase
+      this.phaseSequence.push({
+        phase: Phase.WORK,
+        round: roundNumber,
+        duration: this.workout.workDuration,
+      });
+
+      // Rest phase (skip after last round)
       if (i < this.workout.rounds - 1) {
-        this.phaseDurations.set(Phase.REST, this.workout.restDuration);
-        this.phaseSequence.push(Phase.REST);
+        this.phaseSequence.push({
+          phase: Phase.REST,
+          round: roundNumber,
+          duration: this.workout.restDuration,
+        });
       }
     }
 
+    // Cool-down phase (round is total rounds)
     if (this.workout.coolDownDuration && this.workout.coolDownDuration > 0) {
-      this.phaseDurations.set(Phase.COOL_DOWN, this.workout.coolDownDuration);
-      this.phaseSequence.push(Phase.COOL_DOWN);
+      this.phaseSequence.push({
+        phase: Phase.COOL_DOWN,
+        round: this.workout.rounds,
+        duration: this.workout.coolDownDuration,
+      });
     }
 
-    this.phaseSequence.push(Phase.COMPLETE);
-    this.phaseDurations.set(Phase.COMPLETE, 0);
+    // Complete phase
+    this.phaseSequence.push({
+      phase: Phase.COMPLETE,
+      round: this.workout.rounds,
+      duration: 0,
+    });
   }
 
   start(): void {
@@ -65,13 +90,12 @@ export class TimerEngine {
     const now = Date.now();
     this.stateManager.start(now);
     this.currentPhaseIndex = 0;
-    const initialPhase = this.phaseSequence[0];
-    const duration = this.phaseDurations.get(initialPhase) || 0;
+    const initialPhaseData = this.phaseSequence[0];
     this.stateManager.setState({
-      phase: initialPhase,
-      currentRound: 0,
-      timeRemaining: duration,
-      totalTime: duration,
+      phase: initialPhaseData.phase,
+      currentRound: initialPhaseData.round,
+      timeRemaining: initialPhaseData.duration,
+      totalTime: initialPhaseData.duration,
     });
     this.lastUpdateTime = now;
     this.tick();
@@ -109,13 +133,12 @@ export class TimerEngine {
     this.currentPhaseIndex = 0;
     this.stateManager.reset();
     if (this.phaseSequence.length > 0) {
-      const initialState = this.phaseSequence[0];
-      const duration = this.phaseDurations.get(initialState) || 0;
+      const initialPhaseData = this.phaseSequence[0];
       this.stateManager.setState({
-        phase: initialState,
-        currentRound: 0,
-        timeRemaining: duration,
-        totalTime: duration,
+        phase: initialPhaseData.phase,
+        currentRound: initialPhaseData.round,
+        timeRemaining: initialPhaseData.duration,
+        totalTime: initialPhaseData.duration,
       });
     }
   }
@@ -131,8 +154,8 @@ export class TimerEngine {
     }
 
     const now = Date.now();
-    const currentPhase = this.phaseSequence[this.currentPhaseIndex];
-    const phaseDuration = this.phaseDurations.get(currentPhase) || 0;
+    const currentPhaseData = this.phaseSequence[this.currentPhaseIndex];
+    const phaseDuration = currentPhaseData.duration;
 
     this.stateManager.updateTimeRemaining(phaseDuration);
 
@@ -171,30 +194,28 @@ export class TimerEngine {
       return;
     }
 
-    const previousPhase = this.phaseSequence[this.currentPhaseIndex];
     this.currentPhaseIndex++;
-    const nextPhase = this.phaseSequence[this.currentPhaseIndex];
-    const duration = this.phaseDurations.get(nextPhase) || 0;
+    const nextPhaseData = this.phaseSequence[this.currentPhaseIndex];
 
-    let currentRound = this.stateManager.getState().currentRound;
-    if (previousPhase === Phase.WORK) {
-      currentRound++;
-    }
-
+    // Reset start time for the new phase
+    const now = Date.now();
     this.stateManager.setState({
-      phase: nextPhase,
-      currentRound,
-      timeRemaining: duration,
-      totalTime: duration,
+      phase: nextPhaseData.phase,
+      currentRound: nextPhaseData.round,
+      timeRemaining: nextPhaseData.duration,
+      totalTime: nextPhaseData.duration,
+      startTime: now,
+      pausedDuration: 0,
+      lastPauseTime: null,
     });
 
-    this.config.onPhaseChange?.(nextPhase, currentRound);
+    this.config.onPhaseChange?.(nextPhaseData.phase, nextPhaseData.round);
     this.config.onUpdate?.(this.stateManager.getState());
 
-    if (nextPhase === Phase.COMPLETE) {
+    if (nextPhaseData.phase === Phase.COMPLETE) {
       this.complete();
     } else {
-      this.lastUpdateTime = Date.now();
+      this.lastUpdateTime = now;
       if (this.stateManager.getState().isRunning) {
         this.tick();
       }
