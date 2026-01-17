@@ -573,12 +573,13 @@ export default function HistoryScreen() {
                                     backgroundGradientFrom: colors.dark.surface,
                                     backgroundGradientTo: colors.dark.surface,
                                     decimalPlaces: 0,
-                                    color: (opacity = 1) =>
-                                        `rgba(255, 152, 0, ${opacity})`,
+                                    color: () => colors.dark.primary,
                                     labelColor: (opacity = 1) =>
                                         `rgba(255, 255, 255, ${opacity})`,
                                     style: { borderRadius: 16 },
                                     barPercentage: 0.5,
+                                    fillShadowGradient: colors.dark.primary,
+                                    fillShadowGradientOpacity: 1,
                                     propsForBackgroundLines: {
                                         strokeWidth: 0,
                                     },
