@@ -18,6 +18,7 @@ export class TimerStateManager {
       startTime: null,
       pausedDuration: 0,
       lastPauseTime: null,
+      workoutStartTime: null,
     };
   }
 
@@ -65,6 +66,7 @@ export class TimerStateManager {
 
   start(startTime: number): void {
     this.state.startTime = startTime;
+    this.state.workoutStartTime = startTime; // Set workout start time once
     this.state.isRunning = true;
     this.state.isPaused = false;
     this.state.lastPauseTime = null;
@@ -74,6 +76,7 @@ export class TimerStateManager {
     this.state.isRunning = false;
     this.state.isPaused = false;
     this.state.startTime = null;
+    this.state.workoutStartTime = null;
     this.state.lastPauseTime = null;
     this.state.pausedDuration = 0;
   }

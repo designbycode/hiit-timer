@@ -25,9 +25,10 @@ export interface TimerState {
   totalTime: number;
   isRunning: boolean;
   isPaused: boolean;
-  startTime: number | null;
+  startTime: number | null; // Start time of current phase
   pausedDuration: number;
   lastPauseTime: number | null;
+  workoutStartTime: number | null; // Start time of entire workout
 }
 
 export interface WorkoutPreset extends Workout {

@@ -118,7 +118,7 @@ export default function WorkoutScreen() {
     }, [isActive, pause, wasPausedByUser])
 
     const handleBackPress = useCallback(() => {
-        const hasStarted = !!timerState.startTime
+        const hasStarted = !!timerState.workoutStartTime
         if (hasStarted) {
             modal.showConfirm(
                 'Workout in Progress',
@@ -134,7 +134,7 @@ export default function WorkoutScreen() {
         }
         // Not started yet; allow default back behavior
         return false
-    }, [router, stopTimer, timerState.startTime, modal])
+    }, [router, stopTimer, timerState.workoutStartTime, modal])
 
     useKeepScreenAwake(isActive && timerState.isRunning)
 
@@ -164,7 +164,7 @@ export default function WorkoutScreen() {
     }, [timerState.isPaused, pause, resume])
 
     const handleStop = useCallback(() => {
-        const hasStarted = !!timerState.startTime
+        const hasStarted = !!timerState.workoutStartTime
         if (!hasStarted) {
             // If never started, no need to confirm — just go back
             router.back()
@@ -180,7 +180,7 @@ export default function WorkoutScreen() {
             'Stop',
             'Cancel'
         )
-    }, [router, stopTimer, timerState.startTime, modal])
+    }, [router, stopTimer, timerState.workoutStartTime, modal])
 
     const handleSkip = useCallback(() => {
         skip()
@@ -208,7 +208,7 @@ export default function WorkoutScreen() {
     }, [restart, showCompletionModal, modal])
 
     const handleEditWorkout = useCallback(() => {
-        const hasStarted = !!timerState.startTime
+        const hasStarted = !!timerState.workoutStartTime
         if (!hasStarted) {
             router.push(`/create-workout?id=${id}`)
             return
@@ -223,7 +223,7 @@ export default function WorkoutScreen() {
             'Leave',
             'Cancel'
         )
-    }, [router, stopTimer, timerState.startTime, id, modal])
+    }, [router, stopTimer, timerState.workoutStartTime, id, modal])
 
     const totalRounds = useMemo(() => {
         return currentWorkout?.rounds || 0
@@ -272,7 +272,8 @@ export default function WorkoutScreen() {
                     elapsed += currentWorkout.warmUpDuration
 
                 // Add FULLY completed rounds (both work AND rest done)
-                const fullyCompletedRounds = timerState.currentRound
+                // currentRound is 1-indexed (1, 2, 3), so round 1 means 0 completed rounds
+                const fullyCompletedRounds = timerState.currentRound - 1
                 if (fullyCompletedRounds > 0) {
                     elapsed +=
                         fullyCompletedRounds *
@@ -291,14 +292,14 @@ export default function WorkoutScreen() {
                 if (currentWorkout.warmUpDuration)
                     elapsed += currentWorkout.warmUpDuration
 
-                // BUG FIX: currentRound increments AFTER work phase completes
-                // So during REST, currentRound is already incremented by 1
-                const actualRoundNumber = timerState.currentRound - 1
+                // currentRound is the current round number (1-indexed)
+                // During REST of round 1, we have 0 fully completed rounds
+                const fullyCompletedRoundsInRest = timerState.currentRound - 1
 
                 // Add FULLY completed rounds (both work AND rest done)
-                if (actualRoundNumber > 0) {
+                if (fullyCompletedRoundsInRest > 0) {
                     elapsed +=
-                        actualRoundNumber *
+                        fullyCompletedRoundsInRest *
                         (currentWorkout.workDuration +
                             currentWorkout.restDuration)
                 }

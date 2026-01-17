@@ -197,8 +197,9 @@ export class TimerEngine {
     this.currentPhaseIndex++;
     const nextPhaseData = this.phaseSequence[this.currentPhaseIndex];
 
-    // Reset start time for the new phase
+    // Reset start time for the new phase (but preserve workoutStartTime)
     const now = Date.now();
+    const currentState = this.stateManager.getState();
     this.stateManager.setState({
       phase: nextPhaseData.phase,
       currentRound: nextPhaseData.round,
@@ -207,6 +208,8 @@ export class TimerEngine {
       startTime: now,
       pausedDuration: 0,
       lastPauseTime: null,
+      // Preserve the original workout start time
+      workoutStartTime: currentState.workoutStartTime,
     });
 
     this.config.onPhaseChange?.(nextPhaseData.phase, nextPhaseData.round);
