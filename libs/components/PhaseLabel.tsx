@@ -22,7 +22,7 @@ const phaseLabels: Record<Phase, string> = {
   [Phase.WORK]: 'WORKOUT',
   [Phase.REST]: 'REST',
   [Phase.COOL_DOWN]: 'COOL DOWN',
-  [Phase.COMPLETE]: 'COMPLETE',
+  [Phase.COMPLETE]: 'WORKOUT COMPLETE',
 };
 
 export const PhaseLabel: React.FC<PhaseLabelProps> = React.memo(({ phase }) => {

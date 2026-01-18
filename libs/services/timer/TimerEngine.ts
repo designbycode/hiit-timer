@@ -212,7 +212,10 @@ export class TimerEngine {
       workoutStartTime: currentState.workoutStartTime,
     });
 
-    this.config.onPhaseChange?.(nextPhaseData.phase, nextPhaseData.round);
+    // Only call onPhaseChange if not transitioning to COMPLETE (onComplete handles that)
+    if (nextPhaseData.phase !== Phase.COMPLETE) {
+      this.config.onPhaseChange?.(nextPhaseData.phase, nextPhaseData.round);
+    }
     this.config.onUpdate?.(this.stateManager.getState());
 
     if (nextPhaseData.phase === Phase.COMPLETE) {
